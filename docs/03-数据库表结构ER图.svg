@@ -1,0 +1,748 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="2260" height="1510" viewBox="0 0 2260 1510">
+<title>微光 Glimmer 数据库表结构 ER 图</title>
+<desc>11 张表：用户、内容、互动、秒杀模块的字段、类型、键与关系。物理上不建外键。</desc>
+<defs>
+<filter id="shadow" x="-10%" y="-10%" width="120%" height="125%"><feDropShadow dx="0" dy="3" stdDeviation="4" flood-color="#0f172a" flood-opacity="0.10"/></filter>
+<marker id="arrow" markerWidth="8" markerHeight="8" refX="8" refY="4" orient="auto" markerUnits="userSpaceOnUse"><path d="M0,0 L8,4 L0,8 Z" fill="#64748b"/></marker>
+<marker id="arrow-purple" markerWidth="8" markerHeight="8" refX="8" refY="4" orient="auto" markerUnits="userSpaceOnUse"><path d="M0,0 L8,4 L0,8 Z" fill="#8b5cf6"/></marker>
+<clipPath id="clip_t_user"><rect x="60" y="185" width="460" height="277" rx="10"/></clipPath>
+<clipPath id="clip_t_user_follow"><rect x="60" y="492" width="460" height="130" rx="10"/></clipPath>
+<clipPath id="clip_t_post"><rect x="620" y="185" width="460" height="403" rx="10"/></clipPath>
+<clipPath id="clip_t_post_image"><rect x="620" y="616" width="460" height="151" rx="10"/></clipPath>
+<clipPath id="clip_t_tag"><rect x="620" y="795" width="460" height="109" rx="10"/></clipPath>
+<clipPath id="clip_t_post_tag"><rect x="620" y="932" width="460" height="172" rx="10"/></clipPath>
+<clipPath id="clip_t_like"><rect x="1180" y="185" width="460" height="130" rx="10"/></clipPath>
+<clipPath id="clip_t_collect"><rect x="1180" y="345" width="460" height="130" rx="10"/></clipPath>
+<clipPath id="clip_t_comment"><rect x="1180" y="505" width="460" height="277" rx="10"/></clipPath>
+<clipPath id="clip_t_seckill_activity"><rect x="1740" y="185" width="460" height="361" rx="10"/></clipPath>
+<clipPath id="clip_t_seckill_order"><rect x="1740" y="576" width="460" height="361" rx="10"/></clipPath>
+</defs>
+<rect width="2260" height="1510" fill="#f1f5f9"/>
+<text x="40" y="40" font-family="'Microsoft YaHei','PingFang SC','Noto Sans CJK SC','Segoe UI',sans-serif" font-size="22" font-weight="700" fill="#0f172a">微光 Glimmer · 数据库表结构 ER 图</text>
+<text x="40" y="62" font-family="'Microsoft YaHei','PingFang SC','Noto Sans CJK SC','Segoe UI',sans-serif" font-size="11" fill="#64748b">11 张表 · MVP P0/P1 · 2026-10-19 · 字段类型与长度为评审建议稿，最终以确认后的 03 文档为准</text>
+<text x="40" y="97" font-family="'Microsoft YaHei','PingFang SC','Noto Sans CJK SC','Segoe UI',sans-serif" font-size="10" font-weight="700" fill="#334155">图例</text>
+<rect x="85.0" y="87.0" width="16.0" height="12" rx="3" fill="#fef3c7" stroke="#f59e0b" stroke-width="0.8"/><text x="93.0" y="96.0" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="7" font-weight="700" fill="#b45309" text-anchor="middle">PK</text>
+<text x="107.0" y="97" font-family="'Microsoft YaHei','PingFang SC','Noto Sans CJK SC','Segoe UI',sans-serif" font-size="9.5" fill="#475569">主键</text>
+<rect x="150.0" y="87.0" width="16.0" height="12" rx="3" fill="#dbeafe" stroke="#93c5fd" stroke-width="0.8"/><text x="158.0" y="96.0" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="7" font-weight="700" fill="#1d4ed8" text-anchor="middle">UK</text>
+<text x="172.0" y="97" font-family="'Microsoft YaHei','PingFang SC','Noto Sans CJK SC','Segoe UI',sans-serif" font-size="9.5" fill="#475569">唯一键</text>
+<rect x="224.5" y="87.0" width="16.0" height="12" rx="3" fill="#ede9fe" stroke="#c4b5fd" stroke-width="0.8"/><text x="232.5" y="96.0" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="7" font-weight="700" fill="#6d28d9" text-anchor="middle">FK</text>
+<text x="246.5" y="97" font-family="'Microsoft YaHei','PingFang SC','Noto Sans CJK SC','Segoe UI',sans-serif" font-size="9.5" fill="#475569">逻辑外键</text>
+<rect x="308.5" y="87.0" width="16.0" height="12" rx="3" fill="#f1f5f9" stroke="#cbd5e1" stroke-width="0.8"/><text x="316.5" y="96.0" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="7" font-weight="700" fill="#475569" text-anchor="middle">IX</text>
+<text x="330.5" y="97" font-family="'Microsoft YaHei','PingFang SC','Noto Sans CJK SC','Segoe UI',sans-serif" font-size="9.5" fill="#475569">普通索引</text>
+<line x1="430" y1="93" x2="470" y2="93" stroke="#64748b" stroke-width="1.5"/>
+<text x="478" y="97" font-family="'Microsoft YaHei','PingFang SC','Noto Sans CJK SC','Segoe UI',sans-serif" font-size="9.5" fill="#475569">直接关系</text>
+<line x1="555" y1="93" x2="595" y2="93" stroke="#8b5cf6" stroke-width="1.5" stroke-dasharray="6 5"/>
+<text x="603" y="97" font-family="'Microsoft YaHei','PingFang SC','Noto Sans CJK SC','Segoe UI',sans-serif" font-size="9.5" fill="#475569">t_user 逻辑外键总线</text>
+<rect x="800" y="87" width="9" height="9" rx="2" fill="#2563eb"/>
+<text x="814" y="97" font-family="'Microsoft YaHei','PingFang SC','Noto Sans CJK SC','Segoe UI',sans-serif" font-size="9.5" fill="#475569">用户</text>
+<rect x="866" y="87" width="9" height="9" rx="2" fill="#059669"/>
+<text x="880" y="97" font-family="'Microsoft YaHei','PingFang SC','Noto Sans CJK SC','Segoe UI',sans-serif" font-size="9.5" fill="#475569">内容</text>
+<rect x="932" y="87" width="9" height="9" rx="2" fill="#ea580c"/>
+<text x="946" y="97" font-family="'Microsoft YaHei','PingFang SC','Noto Sans CJK SC','Segoe UI',sans-serif" font-size="9.5" fill="#475569">互动</text>
+<rect x="998" y="87" width="9" height="9" rx="2" fill="#7c3aed"/>
+<text x="1012" y="97" font-family="'Microsoft YaHei','PingFang SC','Noto Sans CJK SC','Segoe UI',sans-serif" font-size="9.5" fill="#475569">秒杀</text>
+<rect x="40" y="125" width="500" height="517" rx="14" fill="#eff6ff" stroke="#bfdbfe" stroke-width="1.2" stroke-dasharray="6 5"/>
+<text x="56" y="149" font-family="'Microsoft YaHei','PingFang SC','Noto Sans CJK SC','Segoe UI',sans-serif" font-size="12" font-weight="700" fill="#1d4ed8">用户模块</text>
+<rect x="600" y="125" width="500" height="999" rx="14" fill="#ecfdf5" stroke="#a7f3d0" stroke-width="1.2" stroke-dasharray="6 5"/>
+<text x="616" y="149" font-family="'Microsoft YaHei','PingFang SC','Noto Sans CJK SC','Segoe UI',sans-serif" font-size="12" font-weight="700" fill="#047857">内容模块</text>
+<rect x="1160" y="125" width="500" height="677" rx="14" fill="#fff7ed" stroke="#fed7aa" stroke-width="1.2" stroke-dasharray="6 5"/>
+<text x="1176" y="149" font-family="'Microsoft YaHei','PingFang SC','Noto Sans CJK SC','Segoe UI',sans-serif" font-size="12" font-weight="700" fill="#c2410c">互动模块</text>
+<rect x="1720" y="125" width="500" height="832" rx="14" fill="#f5f3ff" stroke="#ddd6fe" stroke-width="1.2" stroke-dasharray="6 5"/>
+<text x="1736" y="149" font-family="'Microsoft YaHei','PingFang SC','Noto Sans CJK SC','Segoe UI',sans-serif" font-size="12" font-weight="700" fill="#6d28d9">秒杀模块</text>
+<path d="M 520 250 L 620 250" fill="none" stroke="#64748b" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<text x="570" y="244" font-family="'Microsoft YaHei','PingFang SC','Noto Sans CJK SC','Segoe UI',sans-serif" font-size="9" font-weight="700" fill="#475569" text-anchor="middle" stroke="#ffffff" stroke-width="3" paint-order="stroke">1:N</text>
+<path d="M 290 462 L 290 492" fill="none" stroke="#64748b" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<text x="300" y="482" font-family="'Microsoft YaHei','PingFang SC','Noto Sans CJK SC','Segoe UI',sans-serif" font-size="9" font-weight="700" fill="#475569" text-anchor="start" stroke="#ffffff" stroke-width="3" paint-order="stroke">1:N</text>
+<path d="M 850 588 L 850 616" fill="none" stroke="#64748b" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<text x="860" y="606" font-family="'Microsoft YaHei','PingFang SC','Noto Sans CJK SC','Segoe UI',sans-serif" font-size="9" font-weight="700" fill="#475569" text-anchor="start" stroke="#ffffff" stroke-width="3" paint-order="stroke">1:N</text>
+<path d="M 850 904 L 850 932" fill="none" stroke="#64748b" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<text x="860" y="922" font-family="'Microsoft YaHei','PingFang SC','Noto Sans CJK SC','Segoe UI',sans-serif" font-size="9" font-weight="700" fill="#475569" text-anchor="start" stroke="#ffffff" stroke-width="3" paint-order="stroke">1:N</text>
+<path d="M 1080 520 L 1118 520 L 1118 1018 L 1080 1018" fill="none" stroke="#64748b" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<text x="1126" y="700" font-family="'Microsoft YaHei','PingFang SC','Noto Sans CJK SC','Segoe UI',sans-serif" font-size="9" font-weight="700" fill="#475569" text-anchor="start" stroke="#ffffff" stroke-width="3" paint-order="stroke">1:N</text>
+<path d="M 1080 250 L 1180 250" fill="none" stroke="#64748b" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<text x="1130" y="244" font-family="'Microsoft YaHei','PingFang SC','Noto Sans CJK SC','Segoe UI',sans-serif" font-size="9" font-weight="700" fill="#475569" text-anchor="middle" stroke="#ffffff" stroke-width="3" paint-order="stroke">1:N</text>
+<path d="M 1080 420 L 1180 420" fill="none" stroke="#64748b" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<text x="1130" y="414" font-family="'Microsoft YaHei','PingFang SC','Noto Sans CJK SC','Segoe UI',sans-serif" font-size="9" font-weight="700" fill="#475569" text-anchor="middle" stroke="#ffffff" stroke-width="3" paint-order="stroke">1:N</text>
+<path d="M 1080 560 L 1135 560 L 1135 640 L 1180 640" fill="none" stroke="#64748b" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<text x="1142" y="600" font-family="'Microsoft YaHei','PingFang SC','Noto Sans CJK SC','Segoe UI',sans-serif" font-size="9" font-weight="700" fill="#475569" text-anchor="start" stroke="#ffffff" stroke-width="3" paint-order="stroke">1:N</text>
+<path d="M 1970 546 L 1970 576" fill="none" stroke="#64748b" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<text x="1980" y="566" font-family="'Microsoft YaHei','PingFang SC','Noto Sans CJK SC','Segoe UI',sans-serif" font-size="9" font-weight="700" fill="#475569" text-anchor="start" stroke="#ffffff" stroke-width="3" paint-order="stroke">1:N</text>
+<path d="M 520 440 L 555 440 L 555 1170 L 1690 1170 L 1690 250" fill="none" stroke="#8b5cf6" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="6 5"/>
+<circle cx="520" cy="440" r="2.5" fill="#8b5cf6"/>
+<path d="M 1690 250 L 1640 250" fill="none" stroke="#8b5cf6" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="6 5" marker-end="url(#arrow-purple)"/>
+<path d="M 1690 420 L 1640 420" fill="none" stroke="#8b5cf6" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="6 5" marker-end="url(#arrow-purple)"/>
+<path d="M 1690 640 L 1640 640" fill="none" stroke="#8b5cf6" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="6 5" marker-end="url(#arrow-purple)"/>
+<path d="M 1690 760 L 1740 760" fill="none" stroke="#8b5cf6" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="6 5" marker-end="url(#arrow-purple)"/>
+<text x="700" y="1158" font-family="'Microsoft YaHei','PingFang SC','Noto Sans CJK SC','Segoe UI',sans-serif" font-size="9.5" font-style="italic" fill="#7c3aed" stroke="#f1f5f9" stroke-width="3" paint-order="stroke">t_user.id → user_id（逻辑外键总线，4 条关系）</text>
+<g filter="url(#shadow)">
+<rect x="60" y="185" width="460" height="277" rx="10" fill="#ffffff" stroke="#cbd5e1" stroke-width="1"/>
+<path d="M70,185 H510 Q520,185 520,195 V225 H60 V195 Q60,185 70,185 Z" fill="#2563eb"/>
+</g>
+<g clip-path="url(#clip_t_user)">
+<line x1="68" y1="246" x2="512" y2="246" stroke="#eef2f7" stroke-width="1"/>
+<rect x="70.0" y="229.5" width="16.0" height="12" rx="3" fill="#fef3c7" stroke="#f59e0b" stroke-width="0.8"/><text x="78.0" y="238.5" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="7" font-weight="700" fill="#b45309" text-anchor="middle">PK</text>
+<text x="114" y="238.7" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="9.5" font-weight="600" fill="#0f172a">id</text>
+<text x="256" y="238.7" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="8.5" fill="#64748b">BIGINT UNSIGNED</text>
+<text x="368" y="238.7" font-family="'Microsoft YaHei','PingFang SC','Noto Sans CJK SC','Segoe UI',sans-serif" font-size="9" fill="#475569">用户唯一标识</text>
+<rect x="60" y="246" width="460" height="21" fill="#f8fafc"/>
+<line x1="68" y1="267" x2="512" y2="267" stroke="#eef2f7" stroke-width="1"/>
+<rect x="70.0" y="250.5" width="16.0" height="12" rx="3" fill="#dbeafe" stroke="#93c5fd" stroke-width="0.8"/><text x="78.0" y="259.5" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="7" font-weight="700" fill="#1d4ed8" text-anchor="middle">UK</text>
+<text x="114" y="259.7" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="9.5" font-weight="600" fill="#0f172a">phone</text>
+<text x="256" y="259.7" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="8.5" fill="#64748b">VARCHAR(20)</text>
+<text x="368" y="259.7" font-family="'Microsoft YaHei','PingFang SC','Noto Sans CJK SC','Segoe UI',sans-serif" font-size="9" fill="#475569">手机号/登录凭证</text>
+<line x1="68" y1="288" x2="512" y2="288" stroke="#eef2f7" stroke-width="1"/>
+<text x="114" y="280.7" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="9.5" font-weight="600" fill="#0f172a">nickname</text>
+<text x="256" y="280.7" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="8.5" fill="#64748b">VARCHAR(30)</text>
+<text x="368" y="280.7" font-family="'Microsoft YaHei','PingFang SC','Noto Sans CJK SC','Segoe UI',sans-serif" font-size="9" fill="#475569">昵称</text>
+<rect x="60" y="288" width="460" height="21" fill="#f8fafc"/>
+<line x1="68" y1="309" x2="512" y2="309" stroke="#eef2f7" stroke-width="1"/>
+<text x="114" y="301.7" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="9.5" font-weight="600" fill="#0f172a">avatar_url</text>
+<text x="256" y="301.7" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="8.5" fill="#64748b">VARCHAR(512)</text>
+<text x="368" y="301.7" font-family="'Microsoft YaHei','PingFang SC','Noto Sans CJK SC','Segoe UI',sans-serif" font-size="9" fill="#475569">头像URL</text>
+<line x1="68" y1="330" x2="512" y2="330" stroke="#eef2f7" stroke-width="1"/>
+<text x="114" y="322.7" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="9.5" font-weight="600" fill="#0f172a">bio</text>
+<text x="256" y="322.7" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="8.5" fill="#64748b">VARCHAR(200)</text>
+<text x="368" y="322.7" font-family="'Microsoft YaHei','PingFang SC','Noto Sans CJK SC','Segoe UI',sans-serif" font-size="9" fill="#475569">个人简介</text>
+<rect x="60" y="330" width="460" height="21" fill="#f8fafc"/>
+<line x1="68" y1="351" x2="512" y2="351" stroke="#eef2f7" stroke-width="1"/>
+<text x="114" y="343.7" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="9.5" font-weight="600" fill="#0f172a">role</text>
+<text x="256" y="343.7" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="8.5" fill="#64748b">TINYINT UNSIGNED</text>
+<text x="368" y="343.7" font-family="'Microsoft YaHei','PingFang SC','Noto Sans CJK SC','Segoe UI',sans-serif" font-size="9" fill="#475569">0普通/1管理员</text>
+<line x1="68" y1="372" x2="512" y2="372" stroke="#eef2f7" stroke-width="1"/>
+<text x="114" y="364.7" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="9.5" font-weight="600" fill="#0f172a">status</text>
+<text x="256" y="364.7" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="8.5" fill="#64748b">TINYINT UNSIGNED</text>
+<text x="368" y="364.7" font-family="'Microsoft YaHei','PingFang SC','Noto Sans CJK SC','Segoe UI',sans-serif" font-size="9" fill="#475569">0正常/1封禁</text>
+<rect x="60" y="372" width="460" height="21" fill="#f8fafc"/>
+<line x1="68" y1="393" x2="512" y2="393" stroke="#eef2f7" stroke-width="1"/>
+<text x="114" y="385.7" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="9.5" font-weight="600" fill="#0f172a">following_count</text>
+<text x="256" y="385.7" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="8.5" fill="#64748b">INT UNSIGNED</text>
+<text x="368" y="385.7" font-family="'Microsoft YaHei','PingFang SC','Noto Sans CJK SC','Segoe UI',sans-serif" font-size="9" fill="#475569">关注数冗余</text>
+<line x1="68" y1="414" x2="512" y2="414" stroke="#eef2f7" stroke-width="1"/>
+<text x="114" y="406.7" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="9.5" font-weight="600" fill="#0f172a">follower_count</text>
+<text x="256" y="406.7" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="8.5" fill="#64748b">INT UNSIGNED</text>
+<text x="368" y="406.7" font-family="'Microsoft YaHei','PingFang SC','Noto Sans CJK SC','Segoe UI',sans-serif" font-size="9" fill="#475569">粉丝数/大V判定</text>
+<rect x="60" y="414" width="460" height="21" fill="#f8fafc"/>
+<line x1="68" y1="435" x2="512" y2="435" stroke="#eef2f7" stroke-width="1"/>
+<text x="114" y="427.7" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="9.5" font-weight="600" fill="#0f172a">created_at</text>
+<text x="256" y="427.7" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="8.5" fill="#64748b">DATETIME(3)</text>
+<text x="368" y="427.7" font-family="'Microsoft YaHei','PingFang SC','Noto Sans CJK SC','Segoe UI',sans-serif" font-size="9" fill="#475569">注册时间</text>
+<line x1="68" y1="456" x2="512" y2="456" stroke="#eef2f7" stroke-width="1"/>
+<text x="114" y="448.7" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="9.5" font-weight="600" fill="#0f172a">updated_at</text>
+<text x="256" y="448.7" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="8.5" fill="#64748b">DATETIME(3)</text>
+<text x="368" y="448.7" font-family="'Microsoft YaHei','PingFang SC','Noto Sans CJK SC','Segoe UI',sans-serif" font-size="9" fill="#475569">更新时间</text>
+</g>
+<text x="74" y="203" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="13.5" font-weight="700" fill="#ffffff">t_user</text>
+<text x="506" y="203" font-family="'Microsoft YaHei','PingFang SC','Noto Sans CJK SC','Segoe UI',sans-serif" font-size="9.5" fill="#ffffff" fill-opacity="0.88" text-anchor="end">账号与身份主表</text>
+<g filter="url(#shadow)">
+<rect x="60" y="492" width="460" height="130" rx="10" fill="#ffffff" stroke="#cbd5e1" stroke-width="1"/>
+<path d="M70,492 H510 Q520,492 520,502 V532 H60 V502 Q60,492 70,492 Z" fill="#2563eb"/>
+</g>
+<g clip-path="url(#clip_t_user_follow)">
+<line x1="68" y1="553" x2="512" y2="553" stroke="#eef2f7" stroke-width="1"/>
+<rect x="70.0" y="536.5" width="16.0" height="12" rx="3" fill="#fef3c7" stroke="#f59e0b" stroke-width="0.8"/><text x="78.0" y="545.5" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="7" font-weight="700" fill="#b45309" text-anchor="middle">PK</text>
+<text x="114" y="545.7" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="9.5" font-weight="600" fill="#0f172a">id</text>
+<text x="256" y="545.7" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="8.5" fill="#64748b">BIGINT UNSIGNED</text>
+<text x="368" y="545.7" font-family="'Microsoft YaHei','PingFang SC','Noto Sans CJK SC','Segoe UI',sans-serif" font-size="9" fill="#475569">关系行ID</text>
+<rect x="60" y="553" width="460" height="21" fill="#f8fafc"/>
+<line x1="68" y1="574" x2="512" y2="574" stroke="#eef2f7" stroke-width="1"/>
+<rect x="70.0" y="557.5" width="16.0" height="12" rx="3" fill="#dbeafe" stroke="#93c5fd" stroke-width="0.8"/><text x="78.0" y="566.5" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="7" font-weight="700" fill="#1d4ed8" text-anchor="middle">UK</text>
+<rect x="88.0" y="557.5" width="16.0" height="12" rx="3" fill="#ede9fe" stroke="#c4b5fd" stroke-width="0.8"/><text x="96.0" y="566.5" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="7" font-weight="700" fill="#6d28d9" text-anchor="middle">FK</text>
+<text x="114" y="566.7" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="9.5" font-weight="600" fill="#0f172a">follower_id</text>
+<text x="256" y="566.7" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="8.5" fill="#64748b">BIGINT UNSIGNED</text>
+<text x="368" y="566.7" font-family="'Microsoft YaHei','PingFang SC','Noto Sans CJK SC','Segoe UI',sans-serif" font-size="9" fill="#475569">关注者</text>
+<line x1="68" y1="595" x2="512" y2="595" stroke="#eef2f7" stroke-width="1"/>
+<rect x="70.0" y="578.5" width="16.0" height="12" rx="3" fill="#dbeafe" stroke="#93c5fd" stroke-width="0.8"/><text x="78.0" y="587.5" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="7" font-weight="700" fill="#1d4ed8" text-anchor="middle">UK</text>
+<rect x="88.0" y="578.5" width="16.0" height="12" rx="3" fill="#ede9fe" stroke="#c4b5fd" stroke-width="0.8"/><text x="96.0" y="587.5" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="7" font-weight="700" fill="#6d28d9" text-anchor="middle">FK</text>
+<text x="114" y="587.7" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="9.5" font-weight="600" fill="#0f172a">followee_id</text>
+<text x="256" y="587.7" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="8.5" fill="#64748b">BIGINT UNSIGNED</text>
+<text x="368" y="587.7" font-family="'Microsoft YaHei','PingFang SC','Noto Sans CJK SC','Segoe UI',sans-serif" font-size="9" fill="#475569">被关注者</text>
+<rect x="60" y="595" width="460" height="21" fill="#f8fafc"/>
+<line x1="68" y1="616" x2="512" y2="616" stroke="#eef2f7" stroke-width="1"/>
+<text x="114" y="608.7" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="9.5" font-weight="600" fill="#0f172a">created_at</text>
+<text x="256" y="608.7" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="8.5" fill="#64748b">DATETIME(3)</text>
+<text x="368" y="608.7" font-family="'Microsoft YaHei','PingFang SC','Noto Sans CJK SC','Segoe UI',sans-serif" font-size="9" fill="#475569">关注时间</text>
+</g>
+<text x="74" y="510" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="13.5" font-weight="700" fill="#ffffff">t_user_follow</text>
+<text x="506" y="510" font-family="'Microsoft YaHei','PingFang SC','Noto Sans CJK SC','Segoe UI',sans-serif" font-size="9.5" fill="#ffffff" fill-opacity="0.88" text-anchor="end">关注关系</text>
+<g filter="url(#shadow)">
+<rect x="620" y="185" width="460" height="403" rx="10" fill="#ffffff" stroke="#cbd5e1" stroke-width="1"/>
+<path d="M630,185 H1070 Q1080,185 1080,195 V225 H620 V195 Q620,185 630,185 Z" fill="#059669"/>
+</g>
+<g clip-path="url(#clip_t_post)">
+<line x1="628" y1="246" x2="1072" y2="246" stroke="#eef2f7" stroke-width="1"/>
+<rect x="630.0" y="229.5" width="16.0" height="12" rx="3" fill="#fef3c7" stroke="#f59e0b" stroke-width="0.8"/><text x="638.0" y="238.5" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="7" font-weight="700" fill="#b45309" text-anchor="middle">PK</text>
+<text x="674" y="238.7" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="9.5" font-weight="600" fill="#0f172a">id</text>
+<text x="816" y="238.7" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="8.5" fill="#64748b">BIGINT UNSIGNED</text>
+<text x="928" y="238.7" font-family="'Microsoft YaHei','PingFang SC','Noto Sans CJK SC','Segoe UI',sans-serif" font-size="9" fill="#475569">帖子ID</text>
+<rect x="620" y="246" width="460" height="21" fill="#f8fafc"/>
+<line x1="628" y1="267" x2="1072" y2="267" stroke="#eef2f7" stroke-width="1"/>
+<rect x="630.0" y="250.5" width="16.0" height="12" rx="3" fill="#ede9fe" stroke="#c4b5fd" stroke-width="0.8"/><text x="638.0" y="259.5" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="7" font-weight="700" fill="#6d28d9" text-anchor="middle">FK</text>
+<rect x="648.0" y="250.5" width="16.0" height="12" rx="3" fill="#f1f5f9" stroke="#cbd5e1" stroke-width="0.8"/><text x="656.0" y="259.5" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="7" font-weight="700" fill="#475569" text-anchor="middle">IX</text>
+<text x="674" y="259.7" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="9.5" font-weight="600" fill="#0f172a">user_id</text>
+<text x="816" y="259.7" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="8.5" fill="#64748b">BIGINT UNSIGNED</text>
+<text x="928" y="259.7" font-family="'Microsoft YaHei','PingFang SC','Noto Sans CJK SC','Segoe UI',sans-serif" font-size="9" fill="#475569">作者ID</text>
+<line x1="628" y1="288" x2="1072" y2="288" stroke="#eef2f7" stroke-width="1"/>
+<text x="674" y="280.7" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="9.5" font-weight="600" fill="#0f172a">title</text>
+<text x="816" y="280.7" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="8.5" fill="#64748b">VARCHAR(100)</text>
+<text x="928" y="280.7" font-family="'Microsoft YaHei','PingFang SC','Noto Sans CJK SC','Segoe UI',sans-serif" font-size="9" fill="#475569">标题</text>
+<rect x="620" y="288" width="460" height="21" fill="#f8fafc"/>
+<line x1="628" y1="309" x2="1072" y2="309" stroke="#eef2f7" stroke-width="1"/>
+<text x="674" y="301.7" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="9.5" font-weight="600" fill="#0f172a">content</text>
+<text x="816" y="301.7" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="8.5" fill="#64748b">TEXT</text>
+<text x="928" y="301.7" font-family="'Microsoft YaHei','PingFang SC','Noto Sans CJK SC','Segoe UI',sans-serif" font-size="9" fill="#475569">正文</text>
+<line x1="628" y1="330" x2="1072" y2="330" stroke="#eef2f7" stroke-width="1"/>
+<rect x="630.0" y="313.5" width="16.0" height="12" rx="3" fill="#f1f5f9" stroke="#cbd5e1" stroke-width="0.8"/><text x="638.0" y="322.5" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="7" font-weight="700" fill="#475569" text-anchor="middle">IX</text>
+<text x="674" y="322.7" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="9.5" font-weight="600" fill="#0f172a">status</text>
+<text x="816" y="322.7" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="8.5" fill="#64748b">TINYINT UNSIGNED</text>
+<text x="928" y="322.7" font-family="'Microsoft YaHei','PingFang SC','Noto Sans CJK SC','Segoe UI',sans-serif" font-size="9" fill="#475569">0正常/1下架</text>
+<rect x="620" y="330" width="460" height="21" fill="#f8fafc"/>
+<line x1="628" y1="351" x2="1072" y2="351" stroke="#eef2f7" stroke-width="1"/>
+<text x="674" y="343.7" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="9.5" font-weight="600" fill="#0f172a">is_deleted</text>
+<text x="816" y="343.7" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="8.5" fill="#64748b">TINYINT UNSIGNED</text>
+<text x="928" y="343.7" font-family="'Microsoft YaHei','PingFang SC','Noto Sans CJK SC','Segoe UI',sans-serif" font-size="9" fill="#475569">0正常/1删除</text>
+<line x1="628" y1="372" x2="1072" y2="372" stroke="#eef2f7" stroke-width="1"/>
+<text x="674" y="364.7" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="9.5" font-weight="600" fill="#0f172a">like_count</text>
+<text x="816" y="364.7" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="8.5" fill="#64748b">INT UNSIGNED</text>
+<text x="928" y="364.7" font-family="'Microsoft YaHei','PingFang SC','Noto Sans CJK SC','Segoe UI',sans-serif" font-size="9" fill="#475569">点赞数</text>
+<rect x="620" y="372" width="460" height="21" fill="#f8fafc"/>
+<line x1="628" y1="393" x2="1072" y2="393" stroke="#eef2f7" stroke-width="1"/>
+<text x="674" y="385.7" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="9.5" font-weight="600" fill="#0f172a">comment_count</text>
+<text x="816" y="385.7" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="8.5" fill="#64748b">INT UNSIGNED</text>
+<text x="928" y="385.7" font-family="'Microsoft YaHei','PingFang SC','Noto Sans CJK SC','Segoe UI',sans-serif" font-size="9" fill="#475569">评论数</text>
+<line x1="628" y1="414" x2="1072" y2="414" stroke="#eef2f7" stroke-width="1"/>
+<text x="674" y="406.7" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="9.5" font-weight="600" fill="#0f172a">collect_count</text>
+<text x="816" y="406.7" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="8.5" fill="#64748b">INT UNSIGNED</text>
+<text x="928" y="406.7" font-family="'Microsoft YaHei','PingFang SC','Noto Sans CJK SC','Segoe UI',sans-serif" font-size="9" fill="#475569">收藏数</text>
+<rect x="620" y="414" width="460" height="21" fill="#f8fafc"/>
+<line x1="628" y1="435" x2="1072" y2="435" stroke="#eef2f7" stroke-width="1"/>
+<text x="674" y="427.7" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="9.5" font-weight="600" fill="#0f172a">view_count</text>
+<text x="816" y="427.7" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="8.5" fill="#64748b">BIGINT UNSIGNED</text>
+<text x="928" y="427.7" font-family="'Microsoft YaHei','PingFang SC','Noto Sans CJK SC','Segoe UI',sans-serif" font-size="9" fill="#475569">浏览数</text>
+<line x1="628" y1="456" x2="1072" y2="456" stroke="#eef2f7" stroke-width="1"/>
+<rect x="630.0" y="439.5" width="16.0" height="12" rx="3" fill="#f1f5f9" stroke="#cbd5e1" stroke-width="0.8"/><text x="638.0" y="448.5" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="7" font-weight="700" fill="#475569" text-anchor="middle">IX</text>
+<text x="674" y="448.7" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="9.5" font-weight="600" fill="#0f172a">ai_tag_status</text>
+<text x="816" y="448.7" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="8.5" fill="#64748b">TINYINT UNSIGNED</text>
+<text x="928" y="448.7" font-family="'Microsoft YaHei','PingFang SC','Noto Sans CJK SC','Segoe UI',sans-serif" font-size="9" fill="#475569">0待/1成功/2降级/3失败</text>
+<rect x="620" y="456" width="460" height="21" fill="#f8fafc"/>
+<line x1="628" y1="477" x2="1072" y2="477" stroke="#eef2f7" stroke-width="1"/>
+<text x="674" y="469.7" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="9.5" font-weight="600" fill="#0f172a">last_interaction_at</text>
+<text x="816" y="469.7" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="8.5" fill="#64748b">DATETIME(3)</text>
+<text x="928" y="469.7" font-family="'Microsoft YaHei','PingFang SC','Noto Sans CJK SC','Segoe UI',sans-serif" font-size="9" fill="#475569">最近互动/热榜扫描</text>
+<line x1="628" y1="498" x2="1072" y2="498" stroke="#eef2f7" stroke-width="1"/>
+<text x="674" y="490.7" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="9.5" font-weight="600" fill="#0f172a">audit_reason</text>
+<text x="816" y="490.7" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="8.5" fill="#64748b">VARCHAR(255)</text>
+<text x="928" y="490.7" font-family="'Microsoft YaHei','PingFang SC','Noto Sans CJK SC','Segoe UI',sans-serif" font-size="9" fill="#475569">下架原因</text>
+<rect x="620" y="498" width="460" height="21" fill="#f8fafc"/>
+<line x1="628" y1="519" x2="1072" y2="519" stroke="#eef2f7" stroke-width="1"/>
+<text x="674" y="511.7" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="9.5" font-weight="600" fill="#0f172a">audited_at</text>
+<text x="816" y="511.7" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="8.5" fill="#64748b">DATETIME(3)</text>
+<text x="928" y="511.7" font-family="'Microsoft YaHei','PingFang SC','Noto Sans CJK SC','Segoe UI',sans-serif" font-size="9" fill="#475569">审核时间</text>
+<line x1="628" y1="540" x2="1072" y2="540" stroke="#eef2f7" stroke-width="1"/>
+<rect x="630.0" y="523.5" width="16.0" height="12" rx="3" fill="#ede9fe" stroke="#c4b5fd" stroke-width="0.8"/><text x="638.0" y="532.5" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="7" font-weight="700" fill="#6d28d9" text-anchor="middle">FK</text>
+<text x="674" y="532.7" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="9.5" font-weight="600" fill="#0f172a">audited_by</text>
+<text x="816" y="532.7" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="8.5" fill="#64748b">BIGINT UNSIGNED</text>
+<text x="928" y="532.7" font-family="'Microsoft YaHei','PingFang SC','Noto Sans CJK SC','Segoe UI',sans-serif" font-size="9" fill="#475569">审核管理员</text>
+<rect x="620" y="540" width="460" height="21" fill="#f8fafc"/>
+<line x1="628" y1="561" x2="1072" y2="561" stroke="#eef2f7" stroke-width="1"/>
+<text x="674" y="553.7" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="9.5" font-weight="600" fill="#0f172a">created_at</text>
+<text x="816" y="553.7" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="8.5" fill="#64748b">DATETIME(3)</text>
+<text x="928" y="553.7" font-family="'Microsoft YaHei','PingFang SC','Noto Sans CJK SC','Segoe UI',sans-serif" font-size="9" fill="#475569">发布时间</text>
+<line x1="628" y1="582" x2="1072" y2="582" stroke="#eef2f7" stroke-width="1"/>
+<text x="674" y="574.7" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="9.5" font-weight="600" fill="#0f172a">updated_at</text>
+<text x="816" y="574.7" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="8.5" fill="#64748b">DATETIME(3)</text>
+<text x="928" y="574.7" font-family="'Microsoft YaHei','PingFang SC','Noto Sans CJK SC','Segoe UI',sans-serif" font-size="9" fill="#475569">更新时间</text>
+</g>
+<text x="634" y="203" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="13.5" font-weight="700" fill="#ffffff">t_post</text>
+<text x="1066" y="203" font-family="'Microsoft YaHei','PingFang SC','Noto Sans CJK SC','Segoe UI',sans-serif" font-size="9.5" fill="#ffffff" fill-opacity="0.88" text-anchor="end">帖子主体</text>
+<g filter="url(#shadow)">
+<rect x="620" y="616" width="460" height="151" rx="10" fill="#ffffff" stroke="#cbd5e1" stroke-width="1"/>
+<path d="M630,616 H1070 Q1080,616 1080,626 V656 H620 V626 Q620,616 630,616 Z" fill="#059669"/>
+</g>
+<g clip-path="url(#clip_t_post_image)">
+<line x1="628" y1="677" x2="1072" y2="677" stroke="#eef2f7" stroke-width="1"/>
+<rect x="630.0" y="660.5" width="16.0" height="12" rx="3" fill="#fef3c7" stroke="#f59e0b" stroke-width="0.8"/><text x="638.0" y="669.5" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="7" font-weight="700" fill="#b45309" text-anchor="middle">PK</text>
+<text x="674" y="669.7" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="9.5" font-weight="600" fill="#0f172a">id</text>
+<text x="816" y="669.7" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="8.5" fill="#64748b">BIGINT UNSIGNED</text>
+<text x="928" y="669.7" font-family="'Microsoft YaHei','PingFang SC','Noto Sans CJK SC','Segoe UI',sans-serif" font-size="9" fill="#475569">图片行ID</text>
+<rect x="620" y="677" width="460" height="21" fill="#f8fafc"/>
+<line x1="628" y1="698" x2="1072" y2="698" stroke="#eef2f7" stroke-width="1"/>
+<rect x="630.0" y="681.5" width="16.0" height="12" rx="3" fill="#dbeafe" stroke="#93c5fd" stroke-width="0.8"/><text x="638.0" y="690.5" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="7" font-weight="700" fill="#1d4ed8" text-anchor="middle">UK</text>
+<rect x="648.0" y="681.5" width="16.0" height="12" rx="3" fill="#ede9fe" stroke="#c4b5fd" stroke-width="0.8"/><text x="656.0" y="690.5" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="7" font-weight="700" fill="#6d28d9" text-anchor="middle">FK</text>
+<text x="674" y="690.7" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="9.5" font-weight="600" fill="#0f172a">post_id</text>
+<text x="816" y="690.7" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="8.5" fill="#64748b">BIGINT UNSIGNED</text>
+<text x="928" y="690.7" font-family="'Microsoft YaHei','PingFang SC','Noto Sans CJK SC','Segoe UI',sans-serif" font-size="9" fill="#475569">所属帖子</text>
+<line x1="628" y1="719" x2="1072" y2="719" stroke="#eef2f7" stroke-width="1"/>
+<text x="674" y="711.7" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="9.5" font-weight="600" fill="#0f172a">url</text>
+<text x="816" y="711.7" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="8.5" fill="#64748b">VARCHAR(512)</text>
+<text x="928" y="711.7" font-family="'Microsoft YaHei','PingFang SC','Noto Sans CJK SC','Segoe UI',sans-serif" font-size="9" fill="#475569">图片URL</text>
+<rect x="620" y="719" width="460" height="21" fill="#f8fafc"/>
+<line x1="628" y1="740" x2="1072" y2="740" stroke="#eef2f7" stroke-width="1"/>
+<rect x="630.0" y="723.5" width="16.0" height="12" rx="3" fill="#dbeafe" stroke="#93c5fd" stroke-width="0.8"/><text x="638.0" y="732.5" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="7" font-weight="700" fill="#1d4ed8" text-anchor="middle">UK</text>
+<text x="674" y="732.7" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="9.5" font-weight="600" fill="#0f172a">sort_order</text>
+<text x="816" y="732.7" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="8.5" fill="#64748b">TINYINT UNSIGNED</text>
+<text x="928" y="732.7" font-family="'Microsoft YaHei','PingFang SC','Noto Sans CJK SC','Segoe UI',sans-serif" font-size="9" fill="#475569">顺序/0为封面</text>
+<line x1="628" y1="761" x2="1072" y2="761" stroke="#eef2f7" stroke-width="1"/>
+<text x="674" y="753.7" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="9.5" font-weight="600" fill="#0f172a">created_at</text>
+<text x="816" y="753.7" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="8.5" fill="#64748b">DATETIME(3)</text>
+<text x="928" y="753.7" font-family="'Microsoft YaHei','PingFang SC','Noto Sans CJK SC','Segoe UI',sans-serif" font-size="9" fill="#475569">写入时间</text>
+</g>
+<text x="634" y="634" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="13.5" font-weight="700" fill="#ffffff">t_post_image</text>
+<text x="1066" y="634" font-family="'Microsoft YaHei','PingFang SC','Noto Sans CJK SC','Segoe UI',sans-serif" font-size="9.5" fill="#ffffff" fill-opacity="0.88" text-anchor="end">帖子图片明细</text>
+<g filter="url(#shadow)">
+<rect x="620" y="795" width="460" height="109" rx="10" fill="#ffffff" stroke="#cbd5e1" stroke-width="1"/>
+<path d="M630,795 H1070 Q1080,795 1080,805 V835 H620 V805 Q620,795 630,795 Z" fill="#059669"/>
+</g>
+<g clip-path="url(#clip_t_tag)">
+<line x1="628" y1="856" x2="1072" y2="856" stroke="#eef2f7" stroke-width="1"/>
+<rect x="630.0" y="839.5" width="16.0" height="12" rx="3" fill="#fef3c7" stroke="#f59e0b" stroke-width="0.8"/><text x="638.0" y="848.5" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="7" font-weight="700" fill="#b45309" text-anchor="middle">PK</text>
+<text x="674" y="848.7" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="9.5" font-weight="600" fill="#0f172a">id</text>
+<text x="816" y="848.7" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="8.5" fill="#64748b">BIGINT UNSIGNED</text>
+<text x="928" y="848.7" font-family="'Microsoft YaHei','PingFang SC','Noto Sans CJK SC','Segoe UI',sans-serif" font-size="9" fill="#475569">标签ID</text>
+<rect x="620" y="856" width="460" height="21" fill="#f8fafc"/>
+<line x1="628" y1="877" x2="1072" y2="877" stroke="#eef2f7" stroke-width="1"/>
+<rect x="630.0" y="860.5" width="16.0" height="12" rx="3" fill="#dbeafe" stroke="#93c5fd" stroke-width="0.8"/><text x="638.0" y="869.5" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="7" font-weight="700" fill="#1d4ed8" text-anchor="middle">UK</text>
+<text x="674" y="869.7" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="9.5" font-weight="600" fill="#0f172a">name</text>
+<text x="816" y="869.7" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="8.5" fill="#64748b">VARCHAR(20)</text>
+<text x="928" y="869.7" font-family="'Microsoft YaHei','PingFang SC','Noto Sans CJK SC','Segoe UI',sans-serif" font-size="9" fill="#475569">标签名</text>
+<line x1="628" y1="898" x2="1072" y2="898" stroke="#eef2f7" stroke-width="1"/>
+<text x="674" y="890.7" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="9.5" font-weight="600" fill="#0f172a">created_at</text>
+<text x="816" y="890.7" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="8.5" fill="#64748b">DATETIME(3)</text>
+<text x="928" y="890.7" font-family="'Microsoft YaHei','PingFang SC','Noto Sans CJK SC','Segoe UI',sans-serif" font-size="9" fill="#475569">创建时间</text>
+</g>
+<text x="634" y="813" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="13.5" font-weight="700" fill="#ffffff">t_tag</text>
+<text x="1066" y="813" font-family="'Microsoft YaHei','PingFang SC','Noto Sans CJK SC','Segoe UI',sans-serif" font-size="9.5" fill="#ffffff" fill-opacity="0.88" text-anchor="end">标签字典</text>
+<g filter="url(#shadow)">
+<rect x="620" y="932" width="460" height="172" rx="10" fill="#ffffff" stroke="#cbd5e1" stroke-width="1"/>
+<path d="M630,932 H1070 Q1080,932 1080,942 V972 H620 V942 Q620,932 630,932 Z" fill="#059669"/>
+</g>
+<g clip-path="url(#clip_t_post_tag)">
+<line x1="628" y1="993" x2="1072" y2="993" stroke="#eef2f7" stroke-width="1"/>
+<rect x="630.0" y="976.5" width="16.0" height="12" rx="3" fill="#fef3c7" stroke="#f59e0b" stroke-width="0.8"/><text x="638.0" y="985.5" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="7" font-weight="700" fill="#b45309" text-anchor="middle">PK</text>
+<text x="674" y="985.7" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="9.5" font-weight="600" fill="#0f172a">id</text>
+<text x="816" y="985.7" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="8.5" fill="#64748b">BIGINT UNSIGNED</text>
+<text x="928" y="985.7" font-family="'Microsoft YaHei','PingFang SC','Noto Sans CJK SC','Segoe UI',sans-serif" font-size="9" fill="#475569">关系行ID</text>
+<rect x="620" y="993" width="460" height="21" fill="#f8fafc"/>
+<line x1="628" y1="1014" x2="1072" y2="1014" stroke="#eef2f7" stroke-width="1"/>
+<rect x="630.0" y="997.5" width="16.0" height="12" rx="3" fill="#dbeafe" stroke="#93c5fd" stroke-width="0.8"/><text x="638.0" y="1006.5" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="7" font-weight="700" fill="#1d4ed8" text-anchor="middle">UK</text>
+<rect x="648.0" y="997.5" width="16.0" height="12" rx="3" fill="#ede9fe" stroke="#c4b5fd" stroke-width="0.8"/><text x="656.0" y="1006.5" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="7" font-weight="700" fill="#6d28d9" text-anchor="middle">FK</text>
+<text x="674" y="1006.7" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="9.5" font-weight="600" fill="#0f172a">post_id</text>
+<text x="816" y="1006.7" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="8.5" fill="#64748b">BIGINT UNSIGNED</text>
+<text x="928" y="1006.7" font-family="'Microsoft YaHei','PingFang SC','Noto Sans CJK SC','Segoe UI',sans-serif" font-size="9" fill="#475569">帖子ID</text>
+<line x1="628" y1="1035" x2="1072" y2="1035" stroke="#eef2f7" stroke-width="1"/>
+<rect x="630.0" y="1018.5" width="16.0" height="12" rx="3" fill="#f1f5f9" stroke="#cbd5e1" stroke-width="0.8"/><text x="638.0" y="1027.5" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="7" font-weight="700" fill="#475569" text-anchor="middle">IX</text>
+<rect x="648.0" y="1018.5" width="16.0" height="12" rx="3" fill="#ede9fe" stroke="#c4b5fd" stroke-width="0.8"/><text x="656.0" y="1027.5" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="7" font-weight="700" fill="#6d28d9" text-anchor="middle">FK</text>
+<text x="674" y="1027.7" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="9.5" font-weight="600" fill="#0f172a">tag_id</text>
+<text x="816" y="1027.7" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="8.5" fill="#64748b">BIGINT UNSIGNED</text>
+<text x="928" y="1027.7" font-family="'Microsoft YaHei','PingFang SC','Noto Sans CJK SC','Segoe UI',sans-serif" font-size="9" fill="#475569">标签ID</text>
+<rect x="620" y="1035" width="460" height="21" fill="#f8fafc"/>
+<line x1="628" y1="1056" x2="1072" y2="1056" stroke="#eef2f7" stroke-width="1"/>
+<text x="674" y="1048.7" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="9.5" font-weight="600" fill="#0f172a">source</text>
+<text x="816" y="1048.7" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="8.5" fill="#64748b">TINYINT UNSIGNED</text>
+<text x="928" y="1048.7" font-family="'Microsoft YaHei','PingFang SC','Noto Sans CJK SC','Segoe UI',sans-serif" font-size="9" fill="#475569">0人工/1AI/2规则</text>
+<line x1="628" y1="1077" x2="1072" y2="1077" stroke="#eef2f7" stroke-width="1"/>
+<text x="674" y="1069.7" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="9.5" font-weight="600" fill="#0f172a">prompt_version</text>
+<text x="816" y="1069.7" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="8.5" fill="#64748b">VARCHAR(32)</text>
+<text x="928" y="1069.7" font-family="'Microsoft YaHei','PingFang SC','Noto Sans CJK SC','Segoe UI',sans-serif" font-size="9" fill="#475569">Prompt版本</text>
+<rect x="620" y="1077" width="460" height="21" fill="#f8fafc"/>
+<line x1="628" y1="1098" x2="1072" y2="1098" stroke="#eef2f7" stroke-width="1"/>
+<text x="674" y="1090.7" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="9.5" font-weight="600" fill="#0f172a">created_at</text>
+<text x="816" y="1090.7" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="8.5" fill="#64748b">DATETIME(3)</text>
+<text x="928" y="1090.7" font-family="'Microsoft YaHei','PingFang SC','Noto Sans CJK SC','Segoe UI',sans-serif" font-size="9" fill="#475569">打标时间</text>
+</g>
+<text x="634" y="950" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="13.5" font-weight="700" fill="#ffffff">t_post_tag</text>
+<text x="1066" y="950" font-family="'Microsoft YaHei','PingFang SC','Noto Sans CJK SC','Segoe UI',sans-serif" font-size="9.5" fill="#ffffff" fill-opacity="0.88" text-anchor="end">帖子-标签关系</text>
+<g filter="url(#shadow)">
+<rect x="1180" y="185" width="460" height="130" rx="10" fill="#ffffff" stroke="#cbd5e1" stroke-width="1"/>
+<path d="M1190,185 H1630 Q1640,185 1640,195 V225 H1180 V195 Q1180,185 1190,185 Z" fill="#ea580c"/>
+</g>
+<g clip-path="url(#clip_t_like)">
+<line x1="1188" y1="246" x2="1632" y2="246" stroke="#eef2f7" stroke-width="1"/>
+<rect x="1190.0" y="229.5" width="16.0" height="12" rx="3" fill="#fef3c7" stroke="#f59e0b" stroke-width="0.8"/><text x="1198.0" y="238.5" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="7" font-weight="700" fill="#b45309" text-anchor="middle">PK</text>
+<text x="1234" y="238.7" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="9.5" font-weight="600" fill="#0f172a">id</text>
+<text x="1376" y="238.7" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="8.5" fill="#64748b">BIGINT UNSIGNED</text>
+<text x="1488" y="238.7" font-family="'Microsoft YaHei','PingFang SC','Noto Sans CJK SC','Segoe UI',sans-serif" font-size="9" fill="#475569">点赞行ID</text>
+<rect x="1180" y="246" width="460" height="21" fill="#f8fafc"/>
+<line x1="1188" y1="267" x2="1632" y2="267" stroke="#eef2f7" stroke-width="1"/>
+<rect x="1190.0" y="250.5" width="16.0" height="12" rx="3" fill="#dbeafe" stroke="#93c5fd" stroke-width="0.8"/><text x="1198.0" y="259.5" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="7" font-weight="700" fill="#1d4ed8" text-anchor="middle">UK</text>
+<rect x="1208.0" y="250.5" width="16.0" height="12" rx="3" fill="#ede9fe" stroke="#c4b5fd" stroke-width="0.8"/><text x="1216.0" y="259.5" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="7" font-weight="700" fill="#6d28d9" text-anchor="middle">FK</text>
+<text x="1234" y="259.7" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="9.5" font-weight="600" fill="#0f172a">user_id</text>
+<text x="1376" y="259.7" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="8.5" fill="#64748b">BIGINT UNSIGNED</text>
+<text x="1488" y="259.7" font-family="'Microsoft YaHei','PingFang SC','Noto Sans CJK SC','Segoe UI',sans-serif" font-size="9" fill="#475569">点赞用户</text>
+<line x1="1188" y1="288" x2="1632" y2="288" stroke="#eef2f7" stroke-width="1"/>
+<rect x="1190.0" y="271.5" width="16.0" height="12" rx="3" fill="#f1f5f9" stroke="#cbd5e1" stroke-width="0.8"/><text x="1198.0" y="280.5" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="7" font-weight="700" fill="#475569" text-anchor="middle">IX</text>
+<rect x="1208.0" y="271.5" width="16.0" height="12" rx="3" fill="#ede9fe" stroke="#c4b5fd" stroke-width="0.8"/><text x="1216.0" y="280.5" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="7" font-weight="700" fill="#6d28d9" text-anchor="middle">FK</text>
+<text x="1234" y="280.7" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="9.5" font-weight="600" fill="#0f172a">post_id</text>
+<text x="1376" y="280.7" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="8.5" fill="#64748b">BIGINT UNSIGNED</text>
+<text x="1488" y="280.7" font-family="'Microsoft YaHei','PingFang SC','Noto Sans CJK SC','Segoe UI',sans-serif" font-size="9" fill="#475569">被点赞帖子</text>
+<rect x="1180" y="288" width="460" height="21" fill="#f8fafc"/>
+<line x1="1188" y1="309" x2="1632" y2="309" stroke="#eef2f7" stroke-width="1"/>
+<text x="1234" y="301.7" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="9.5" font-weight="600" fill="#0f172a">created_at</text>
+<text x="1376" y="301.7" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="8.5" fill="#64748b">DATETIME(3)</text>
+<text x="1488" y="301.7" font-family="'Microsoft YaHei','PingFang SC','Noto Sans CJK SC','Segoe UI',sans-serif" font-size="9" fill="#475569">点赞时间</text>
+</g>
+<text x="1194" y="203" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="13.5" font-weight="700" fill="#ffffff">t_like</text>
+<text x="1626" y="203" font-family="'Microsoft YaHei','PingFang SC','Noto Sans CJK SC','Segoe UI',sans-serif" font-size="9.5" fill="#ffffff" fill-opacity="0.88" text-anchor="end">点赞关系</text>
+<g filter="url(#shadow)">
+<rect x="1180" y="345" width="460" height="130" rx="10" fill="#ffffff" stroke="#cbd5e1" stroke-width="1"/>
+<path d="M1190,345 H1630 Q1640,345 1640,355 V385 H1180 V355 Q1180,345 1190,345 Z" fill="#ea580c"/>
+</g>
+<g clip-path="url(#clip_t_collect)">
+<line x1="1188" y1="406" x2="1632" y2="406" stroke="#eef2f7" stroke-width="1"/>
+<rect x="1190.0" y="389.5" width="16.0" height="12" rx="3" fill="#fef3c7" stroke="#f59e0b" stroke-width="0.8"/><text x="1198.0" y="398.5" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="7" font-weight="700" fill="#b45309" text-anchor="middle">PK</text>
+<text x="1234" y="398.7" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="9.5" font-weight="600" fill="#0f172a">id</text>
+<text x="1376" y="398.7" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="8.5" fill="#64748b">BIGINT UNSIGNED</text>
+<text x="1488" y="398.7" font-family="'Microsoft YaHei','PingFang SC','Noto Sans CJK SC','Segoe UI',sans-serif" font-size="9" fill="#475569">收藏行ID</text>
+<rect x="1180" y="406" width="460" height="21" fill="#f8fafc"/>
+<line x1="1188" y1="427" x2="1632" y2="427" stroke="#eef2f7" stroke-width="1"/>
+<rect x="1190.0" y="410.5" width="16.0" height="12" rx="3" fill="#dbeafe" stroke="#93c5fd" stroke-width="0.8"/><text x="1198.0" y="419.5" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="7" font-weight="700" fill="#1d4ed8" text-anchor="middle">UK</text>
+<rect x="1208.0" y="410.5" width="16.0" height="12" rx="3" fill="#ede9fe" stroke="#c4b5fd" stroke-width="0.8"/><text x="1216.0" y="419.5" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="7" font-weight="700" fill="#6d28d9" text-anchor="middle">FK</text>
+<text x="1234" y="419.7" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="9.5" font-weight="600" fill="#0f172a">user_id</text>
+<text x="1376" y="419.7" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="8.5" fill="#64748b">BIGINT UNSIGNED</text>
+<text x="1488" y="419.7" font-family="'Microsoft YaHei','PingFang SC','Noto Sans CJK SC','Segoe UI',sans-serif" font-size="9" fill="#475569">收藏用户</text>
+<line x1="1188" y1="448" x2="1632" y2="448" stroke="#eef2f7" stroke-width="1"/>
+<rect x="1190.0" y="431.5" width="16.0" height="12" rx="3" fill="#f1f5f9" stroke="#cbd5e1" stroke-width="0.8"/><text x="1198.0" y="440.5" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="7" font-weight="700" fill="#475569" text-anchor="middle">IX</text>
+<rect x="1208.0" y="431.5" width="16.0" height="12" rx="3" fill="#ede9fe" stroke="#c4b5fd" stroke-width="0.8"/><text x="1216.0" y="440.5" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="7" font-weight="700" fill="#6d28d9" text-anchor="middle">FK</text>
+<text x="1234" y="440.7" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="9.5" font-weight="600" fill="#0f172a">post_id</text>
+<text x="1376" y="440.7" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="8.5" fill="#64748b">BIGINT UNSIGNED</text>
+<text x="1488" y="440.7" font-family="'Microsoft YaHei','PingFang SC','Noto Sans CJK SC','Segoe UI',sans-serif" font-size="9" fill="#475569">被收藏帖子</text>
+<rect x="1180" y="448" width="460" height="21" fill="#f8fafc"/>
+<line x1="1188" y1="469" x2="1632" y2="469" stroke="#eef2f7" stroke-width="1"/>
+<text x="1234" y="461.7" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="9.5" font-weight="600" fill="#0f172a">created_at</text>
+<text x="1376" y="461.7" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="8.5" fill="#64748b">DATETIME(3)</text>
+<text x="1488" y="461.7" font-family="'Microsoft YaHei','PingFang SC','Noto Sans CJK SC','Segoe UI',sans-serif" font-size="9" fill="#475569">收藏时间</text>
+</g>
+<text x="1194" y="363" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="13.5" font-weight="700" fill="#ffffff">t_collect</text>
+<text x="1626" y="363" font-family="'Microsoft YaHei','PingFang SC','Noto Sans CJK SC','Segoe UI',sans-serif" font-size="9.5" fill="#ffffff" fill-opacity="0.88" text-anchor="end">收藏关系</text>
+<g filter="url(#shadow)">
+<rect x="1180" y="505" width="460" height="277" rx="10" fill="#ffffff" stroke="#cbd5e1" stroke-width="1"/>
+<path d="M1190,505 H1630 Q1640,505 1640,515 V545 H1180 V515 Q1180,505 1190,505 Z" fill="#ea580c"/>
+</g>
+<g clip-path="url(#clip_t_comment)">
+<line x1="1188" y1="566" x2="1632" y2="566" stroke="#eef2f7" stroke-width="1"/>
+<rect x="1190.0" y="549.5" width="16.0" height="12" rx="3" fill="#fef3c7" stroke="#f59e0b" stroke-width="0.8"/><text x="1198.0" y="558.5" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="7" font-weight="700" fill="#b45309" text-anchor="middle">PK</text>
+<text x="1234" y="558.7" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="9.5" font-weight="600" fill="#0f172a">id</text>
+<text x="1376" y="558.7" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="8.5" fill="#64748b">BIGINT UNSIGNED</text>
+<text x="1488" y="558.7" font-family="'Microsoft YaHei','PingFang SC','Noto Sans CJK SC','Segoe UI',sans-serif" font-size="9" fill="#475569">评论ID</text>
+<rect x="1180" y="566" width="460" height="21" fill="#f8fafc"/>
+<line x1="1188" y1="587" x2="1632" y2="587" stroke="#eef2f7" stroke-width="1"/>
+<rect x="1190.0" y="570.5" width="16.0" height="12" rx="3" fill="#f1f5f9" stroke="#cbd5e1" stroke-width="0.8"/><text x="1198.0" y="579.5" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="7" font-weight="700" fill="#475569" text-anchor="middle">IX</text>
+<rect x="1208.0" y="570.5" width="16.0" height="12" rx="3" fill="#ede9fe" stroke="#c4b5fd" stroke-width="0.8"/><text x="1216.0" y="579.5" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="7" font-weight="700" fill="#6d28d9" text-anchor="middle">FK</text>
+<text x="1234" y="579.7" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="9.5" font-weight="600" fill="#0f172a">post_id</text>
+<text x="1376" y="579.7" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="8.5" fill="#64748b">BIGINT UNSIGNED</text>
+<text x="1488" y="579.7" font-family="'Microsoft YaHei','PingFang SC','Noto Sans CJK SC','Segoe UI',sans-serif" font-size="9" fill="#475569">所属帖子</text>
+<line x1="1188" y1="608" x2="1632" y2="608" stroke="#eef2f7" stroke-width="1"/>
+<rect x="1190.0" y="591.5" width="16.0" height="12" rx="3" fill="#ede9fe" stroke="#c4b5fd" stroke-width="0.8"/><text x="1198.0" y="600.5" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="7" font-weight="700" fill="#6d28d9" text-anchor="middle">FK</text>
+<text x="1234" y="600.7" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="9.5" font-weight="600" fill="#0f172a">user_id</text>
+<text x="1376" y="600.7" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="8.5" fill="#64748b">BIGINT UNSIGNED</text>
+<text x="1488" y="600.7" font-family="'Microsoft YaHei','PingFang SC','Noto Sans CJK SC','Segoe UI',sans-serif" font-size="9" fill="#475569">评论作者</text>
+<rect x="1180" y="608" width="460" height="21" fill="#f8fafc"/>
+<line x1="1188" y1="629" x2="1632" y2="629" stroke="#eef2f7" stroke-width="1"/>
+<text x="1234" y="621.7" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="9.5" font-weight="600" fill="#0f172a">parent_id</text>
+<text x="1376" y="621.7" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="8.5" fill="#64748b">BIGINT UNSIGNED</text>
+<text x="1488" y="621.7" font-family="'Microsoft YaHei','PingFang SC','Noto Sans CJK SC','Segoe UI',sans-serif" font-size="9" fill="#475569">0一级/否则根评论</text>
+<line x1="1188" y1="650" x2="1632" y2="650" stroke="#eef2f7" stroke-width="1"/>
+<rect x="1190.0" y="633.5" width="16.0" height="12" rx="3" fill="#ede9fe" stroke="#c4b5fd" stroke-width="0.8"/><text x="1198.0" y="642.5" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="7" font-weight="700" fill="#6d28d9" text-anchor="middle">FK</text>
+<text x="1234" y="642.7" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="9.5" font-weight="600" fill="#0f172a">reply_to_user_id</text>
+<text x="1376" y="642.7" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="8.5" fill="#64748b">BIGINT UNSIGNED</text>
+<text x="1488" y="642.7" font-family="'Microsoft YaHei','PingFang SC','Noto Sans CJK SC','Segoe UI',sans-serif" font-size="9" fill="#475569">被回复用户</text>
+<rect x="1180" y="650" width="460" height="21" fill="#f8fafc"/>
+<line x1="1188" y1="671" x2="1632" y2="671" stroke="#eef2f7" stroke-width="1"/>
+<text x="1234" y="663.7" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="9.5" font-weight="600" fill="#0f172a">content</text>
+<text x="1376" y="663.7" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="8.5" fill="#64748b">VARCHAR(500)</text>
+<text x="1488" y="663.7" font-family="'Microsoft YaHei','PingFang SC','Noto Sans CJK SC','Segoe UI',sans-serif" font-size="9" fill="#475569">评论内容</text>
+<line x1="1188" y1="692" x2="1632" y2="692" stroke="#eef2f7" stroke-width="1"/>
+<text x="1234" y="684.7" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="9.5" font-weight="600" fill="#0f172a">sentiment</text>
+<text x="1376" y="684.7" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="8.5" fill="#64748b">TINYINT</text>
+<text x="1488" y="684.7" font-family="'Microsoft YaHei','PingFang SC','Noto Sans CJK SC','Segoe UI',sans-serif" font-size="9" fill="#475569">-1负/0中/1正/NULL未分析</text>
+<rect x="1180" y="692" width="460" height="21" fill="#f8fafc"/>
+<line x1="1188" y1="713" x2="1632" y2="713" stroke="#eef2f7" stroke-width="1"/>
+<text x="1234" y="705.7" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="9.5" font-weight="600" fill="#0f172a">sentiment_prompt_version</text>
+<text x="1376" y="705.7" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="8.5" fill="#64748b">VARCHAR(32)</text>
+<text x="1488" y="705.7" font-family="'Microsoft YaHei','PingFang SC','Noto Sans CJK SC','Segoe UI',sans-serif" font-size="9" fill="#475569">情感Prompt版本</text>
+<line x1="1188" y1="734" x2="1632" y2="734" stroke="#eef2f7" stroke-width="1"/>
+<text x="1234" y="726.7" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="9.5" font-weight="600" fill="#0f172a">is_deleted</text>
+<text x="1376" y="726.7" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="8.5" fill="#64748b">TINYINT UNSIGNED</text>
+<text x="1488" y="726.7" font-family="'Microsoft YaHei','PingFang SC','Noto Sans CJK SC','Segoe UI',sans-serif" font-size="9" fill="#475569">0正常/1删除</text>
+<rect x="1180" y="734" width="460" height="21" fill="#f8fafc"/>
+<line x1="1188" y1="755" x2="1632" y2="755" stroke="#eef2f7" stroke-width="1"/>
+<text x="1234" y="747.7" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="9.5" font-weight="600" fill="#0f172a">created_at</text>
+<text x="1376" y="747.7" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="8.5" fill="#64748b">DATETIME(3)</text>
+<text x="1488" y="747.7" font-family="'Microsoft YaHei','PingFang SC','Noto Sans CJK SC','Segoe UI',sans-serif" font-size="9" fill="#475569">评论时间</text>
+<line x1="1188" y1="776" x2="1632" y2="776" stroke="#eef2f7" stroke-width="1"/>
+<text x="1234" y="768.7" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="9.5" font-weight="600" fill="#0f172a">updated_at</text>
+<text x="1376" y="768.7" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="8.5" fill="#64748b">DATETIME(3)</text>
+<text x="1488" y="768.7" font-family="'Microsoft YaHei','PingFang SC','Noto Sans CJK SC','Segoe UI',sans-serif" font-size="9" fill="#475569">更新时间</text>
+</g>
+<text x="1194" y="523" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="13.5" font-weight="700" fill="#ffffff">t_comment</text>
+<text x="1626" y="523" font-family="'Microsoft YaHei','PingFang SC','Noto Sans CJK SC','Segoe UI',sans-serif" font-size="9.5" fill="#ffffff" fill-opacity="0.88" text-anchor="end">评论 / 回复</text>
+<g filter="url(#shadow)">
+<rect x="1740" y="185" width="460" height="361" rx="10" fill="#ffffff" stroke="#cbd5e1" stroke-width="1"/>
+<path d="M1750,185 H2190 Q2200,185 2200,195 V225 H1740 V195 Q1740,185 1750,185 Z" fill="#7c3aed"/>
+</g>
+<g clip-path="url(#clip_t_seckill_activity)">
+<line x1="1748" y1="246" x2="2192" y2="246" stroke="#eef2f7" stroke-width="1"/>
+<rect x="1750.0" y="229.5" width="16.0" height="12" rx="3" fill="#fef3c7" stroke="#f59e0b" stroke-width="0.8"/><text x="1758.0" y="238.5" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="7" font-weight="700" fill="#b45309" text-anchor="middle">PK</text>
+<text x="1794" y="238.7" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="9.5" font-weight="600" fill="#0f172a">id</text>
+<text x="1936" y="238.7" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="8.5" fill="#64748b">BIGINT UNSIGNED</text>
+<text x="2048" y="238.7" font-family="'Microsoft YaHei','PingFang SC','Noto Sans CJK SC','Segoe UI',sans-serif" font-size="9" fill="#475569">活动ID</text>
+<rect x="1740" y="246" width="460" height="21" fill="#f8fafc"/>
+<line x1="1748" y1="267" x2="2192" y2="267" stroke="#eef2f7" stroke-width="1"/>
+<text x="1794" y="259.7" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="9.5" font-weight="600" fill="#0f172a">title</text>
+<text x="1936" y="259.7" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="8.5" fill="#64748b">VARCHAR(100)</text>
+<text x="2048" y="259.7" font-family="'Microsoft YaHei','PingFang SC','Noto Sans CJK SC','Segoe UI',sans-serif" font-size="9" fill="#475569">活动标题</text>
+<line x1="1748" y1="288" x2="2192" y2="288" stroke="#eef2f7" stroke-width="1"/>
+<text x="1794" y="280.7" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="9.5" font-weight="600" fill="#0f172a">product_name</text>
+<text x="1936" y="280.7" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="8.5" fill="#64748b">VARCHAR(100)</text>
+<text x="2048" y="280.7" font-family="'Microsoft YaHei','PingFang SC','Noto Sans CJK SC','Segoe UI',sans-serif" font-size="9" fill="#475569">商品名称</text>
+<rect x="1740" y="288" width="460" height="21" fill="#f8fafc"/>
+<line x1="1748" y1="309" x2="2192" y2="309" stroke="#eef2f7" stroke-width="1"/>
+<text x="1794" y="301.7" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="9.5" font-weight="600" fill="#0f172a">image_url</text>
+<text x="1936" y="301.7" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="8.5" fill="#64748b">VARCHAR(512)</text>
+<text x="2048" y="301.7" font-family="'Microsoft YaHei','PingFang SC','Noto Sans CJK SC','Segoe UI',sans-serif" font-size="9" fill="#475569">商品图片URL</text>
+<line x1="1748" y1="330" x2="2192" y2="330" stroke="#eef2f7" stroke-width="1"/>
+<text x="1794" y="322.7" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="9.5" font-weight="600" fill="#0f172a">description</text>
+<text x="1936" y="322.7" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="8.5" fill="#64748b">VARCHAR(1000)</text>
+<text x="2048" y="322.7" font-family="'Microsoft YaHei','PingFang SC','Noto Sans CJK SC','Segoe UI',sans-serif" font-size="9" fill="#475569">活动描述</text>
+<rect x="1740" y="330" width="460" height="21" fill="#f8fafc"/>
+<line x1="1748" y1="351" x2="2192" y2="351" stroke="#eef2f7" stroke-width="1"/>
+<text x="1794" y="343.7" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="9.5" font-weight="600" fill="#0f172a">unit_price</text>
+<text x="1936" y="343.7" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="8.5" fill="#64748b">DECIMAL(10,2)</text>
+<text x="2048" y="343.7" font-family="'Microsoft YaHei','PingFang SC','Noto Sans CJK SC','Segoe UI',sans-serif" font-size="9" fill="#475569">单价</text>
+<line x1="1748" y1="372" x2="2192" y2="372" stroke="#eef2f7" stroke-width="1"/>
+<text x="1794" y="364.7" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="9.5" font-weight="600" fill="#0f172a">total_stock</text>
+<text x="1936" y="364.7" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="8.5" fill="#64748b">INT UNSIGNED</text>
+<text x="2048" y="364.7" font-family="'Microsoft YaHei','PingFang SC','Noto Sans CJK SC','Segoe UI',sans-serif" font-size="9" fill="#475569">总库存/对账基准</text>
+<rect x="1740" y="372" width="460" height="21" fill="#f8fafc"/>
+<line x1="1748" y1="393" x2="2192" y2="393" stroke="#eef2f7" stroke-width="1"/>
+<text x="1794" y="385.7" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="9.5" font-weight="600" fill="#0f172a">stock</text>
+<text x="1936" y="385.7" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="8.5" fill="#64748b">INT UNSIGNED</text>
+<text x="2048" y="385.7" font-family="'Microsoft YaHei','PingFang SC','Noto Sans CJK SC','Segoe UI',sans-serif" font-size="9" fill="#475569">当前可售库存</text>
+<line x1="1748" y1="414" x2="2192" y2="414" stroke="#eef2f7" stroke-width="1"/>
+<text x="1794" y="406.7" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="9.5" font-weight="600" fill="#0f172a">limit_num</text>
+<text x="1936" y="406.7" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="8.5" fill="#64748b">INT UNSIGNED</text>
+<text x="2048" y="406.7" font-family="'Microsoft YaHei','PingFang SC','Noto Sans CJK SC','Segoe UI',sans-serif" font-size="9" fill="#475569">每人限购/MVP=1</text>
+<rect x="1740" y="414" width="460" height="21" fill="#f8fafc"/>
+<line x1="1748" y1="435" x2="2192" y2="435" stroke="#eef2f7" stroke-width="1"/>
+<text x="1794" y="427.7" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="9.5" font-weight="600" fill="#0f172a">start_time</text>
+<text x="1936" y="427.7" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="8.5" fill="#64748b">DATETIME(3)</text>
+<text x="2048" y="427.7" font-family="'Microsoft YaHei','PingFang SC','Noto Sans CJK SC','Segoe UI',sans-serif" font-size="9" fill="#475569">开始时间</text>
+<line x1="1748" y1="456" x2="2192" y2="456" stroke="#eef2f7" stroke-width="1"/>
+<text x="1794" y="448.7" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="9.5" font-weight="600" fill="#0f172a">end_time</text>
+<text x="1936" y="448.7" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="8.5" fill="#64748b">DATETIME(3)</text>
+<text x="2048" y="448.7" font-family="'Microsoft YaHei','PingFang SC','Noto Sans CJK SC','Segoe UI',sans-serif" font-size="9" fill="#475569">结束时间</text>
+<rect x="1740" y="456" width="460" height="21" fill="#f8fafc"/>
+<line x1="1748" y1="477" x2="2192" y2="477" stroke="#eef2f7" stroke-width="1"/>
+<rect x="1750.0" y="460.5" width="16.0" height="12" rx="3" fill="#f1f5f9" stroke="#cbd5e1" stroke-width="0.8"/><text x="1758.0" y="469.5" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="7" font-weight="700" fill="#475569" text-anchor="middle">IX</text>
+<text x="1794" y="469.7" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="9.5" font-weight="600" fill="#0f172a">status</text>
+<text x="1936" y="469.7" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="8.5" fill="#64748b">TINYINT UNSIGNED</text>
+<text x="2048" y="469.7" font-family="'Microsoft YaHei','PingFang SC','Noto Sans CJK SC','Segoe UI',sans-serif" font-size="9" fill="#475569">0草稿/1发布/2下架</text>
+<line x1="1748" y1="498" x2="2192" y2="498" stroke="#eef2f7" stroke-width="1"/>
+<rect x="1750.0" y="481.5" width="16.0" height="12" rx="3" fill="#ede9fe" stroke="#c4b5fd" stroke-width="0.8"/><text x="1758.0" y="490.5" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="7" font-weight="700" fill="#6d28d9" text-anchor="middle">FK</text>
+<text x="1794" y="490.7" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="9.5" font-weight="600" fill="#0f172a">created_by</text>
+<text x="1936" y="490.7" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="8.5" fill="#64748b">BIGINT UNSIGNED</text>
+<text x="2048" y="490.7" font-family="'Microsoft YaHei','PingFang SC','Noto Sans CJK SC','Segoe UI',sans-serif" font-size="9" fill="#475569">创建管理员</text>
+<rect x="1740" y="498" width="460" height="21" fill="#f8fafc"/>
+<line x1="1748" y1="519" x2="2192" y2="519" stroke="#eef2f7" stroke-width="1"/>
+<text x="1794" y="511.7" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="9.5" font-weight="600" fill="#0f172a">created_at</text>
+<text x="1936" y="511.7" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="8.5" fill="#64748b">DATETIME(3)</text>
+<text x="2048" y="511.7" font-family="'Microsoft YaHei','PingFang SC','Noto Sans CJK SC','Segoe UI',sans-serif" font-size="9" fill="#475569">创建时间</text>
+<line x1="1748" y1="540" x2="2192" y2="540" stroke="#eef2f7" stroke-width="1"/>
+<text x="1794" y="532.7" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="9.5" font-weight="600" fill="#0f172a">updated_at</text>
+<text x="1936" y="532.7" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="8.5" fill="#64748b">DATETIME(3)</text>
+<text x="2048" y="532.7" font-family="'Microsoft YaHei','PingFang SC','Noto Sans CJK SC','Segoe UI',sans-serif" font-size="9" fill="#475569">更新时间</text>
+</g>
+<text x="1754" y="203" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="13.5" font-weight="700" fill="#ffffff">t_seckill_activity</text>
+<text x="2186" y="203" font-family="'Microsoft YaHei','PingFang SC','Noto Sans CJK SC','Segoe UI',sans-serif" font-size="9.5" fill="#ffffff" fill-opacity="0.88" text-anchor="end">秒杀活动 / 库存</text>
+<g filter="url(#shadow)">
+<rect x="1740" y="576" width="460" height="361" rx="10" fill="#ffffff" stroke="#cbd5e1" stroke-width="1"/>
+<path d="M1750,576 H2190 Q2200,576 2200,586 V616 H1740 V586 Q1740,576 1750,576 Z" fill="#7c3aed"/>
+</g>
+<g clip-path="url(#clip_t_seckill_order)">
+<line x1="1748" y1="637" x2="2192" y2="637" stroke="#eef2f7" stroke-width="1"/>
+<rect x="1750.0" y="620.5" width="16.0" height="12" rx="3" fill="#fef3c7" stroke="#f59e0b" stroke-width="0.8"/><text x="1758.0" y="629.5" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="7" font-weight="700" fill="#b45309" text-anchor="middle">PK</text>
+<text x="1794" y="629.7" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="9.5" font-weight="600" fill="#0f172a">id</text>
+<text x="1936" y="629.7" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="8.5" fill="#64748b">BIGINT UNSIGNED</text>
+<text x="2048" y="629.7" font-family="'Microsoft YaHei','PingFang SC','Noto Sans CJK SC','Segoe UI',sans-serif" font-size="9" fill="#475569">订单行ID</text>
+<rect x="1740" y="637" width="460" height="21" fill="#f8fafc"/>
+<line x1="1748" y1="658" x2="2192" y2="658" stroke="#eef2f7" stroke-width="1"/>
+<rect x="1750.0" y="641.5" width="16.0" height="12" rx="3" fill="#dbeafe" stroke="#93c5fd" stroke-width="0.8"/><text x="1758.0" y="650.5" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="7" font-weight="700" fill="#1d4ed8" text-anchor="middle">UK</text>
+<text x="1794" y="650.7" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="9.5" font-weight="600" fill="#0f172a">order_no</text>
+<text x="1936" y="650.7" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="8.5" fill="#64748b">VARCHAR(32)</text>
+<text x="2048" y="650.7" font-family="'Microsoft YaHei','PingFang SC','Noto Sans CJK SC','Segoe UI',sans-serif" font-size="9" fill="#475569">业务订单号</text>
+<line x1="1748" y1="679" x2="2192" y2="679" stroke="#eef2f7" stroke-width="1"/>
+<rect x="1750.0" y="662.5" width="16.0" height="12" rx="3" fill="#dbeafe" stroke="#93c5fd" stroke-width="0.8"/><text x="1758.0" y="671.5" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="7" font-weight="700" fill="#1d4ed8" text-anchor="middle">UK</text>
+<text x="1794" y="671.7" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="9.5" font-weight="600" fill="#0f172a">request_id</text>
+<text x="1936" y="671.7" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="8.5" fill="#64748b">VARCHAR(64)</text>
+<text x="2048" y="671.7" font-family="'Microsoft YaHei','PingFang SC','Noto Sans CJK SC','Segoe UI',sans-serif" font-size="9" fill="#475569">请求幂等ID</text>
+<rect x="1740" y="679" width="460" height="21" fill="#f8fafc"/>
+<line x1="1748" y1="700" x2="2192" y2="700" stroke="#eef2f7" stroke-width="1"/>
+<rect x="1750.0" y="683.5" width="16.0" height="12" rx="3" fill="#f1f5f9" stroke="#cbd5e1" stroke-width="0.8"/><text x="1758.0" y="692.5" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="7" font-weight="700" fill="#475569" text-anchor="middle">IX</text>
+<rect x="1768.0" y="683.5" width="16.0" height="12" rx="3" fill="#ede9fe" stroke="#c4b5fd" stroke-width="0.8"/><text x="1776.0" y="692.5" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="7" font-weight="700" fill="#6d28d9" text-anchor="middle">FK</text>
+<text x="1794" y="692.7" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="9.5" font-weight="600" fill="#0f172a">user_id</text>
+<text x="1936" y="692.7" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="8.5" fill="#64748b">BIGINT UNSIGNED</text>
+<text x="2048" y="692.7" font-family="'Microsoft YaHei','PingFang SC','Noto Sans CJK SC','Segoe UI',sans-serif" font-size="9" fill="#475569">下单用户</text>
+<line x1="1748" y1="721" x2="2192" y2="721" stroke="#eef2f7" stroke-width="1"/>
+<rect x="1750.0" y="704.5" width="16.0" height="12" rx="3" fill="#f1f5f9" stroke="#cbd5e1" stroke-width="0.8"/><text x="1758.0" y="713.5" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="7" font-weight="700" fill="#475569" text-anchor="middle">IX</text>
+<rect x="1768.0" y="704.5" width="16.0" height="12" rx="3" fill="#ede9fe" stroke="#c4b5fd" stroke-width="0.8"/><text x="1776.0" y="713.5" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="7" font-weight="700" fill="#6d28d9" text-anchor="middle">FK</text>
+<text x="1794" y="713.7" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="9.5" font-weight="600" fill="#0f172a">activity_id</text>
+<text x="1936" y="713.7" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="8.5" fill="#64748b">BIGINT UNSIGNED</text>
+<text x="2048" y="713.7" font-family="'Microsoft YaHei','PingFang SC','Noto Sans CJK SC','Segoe UI',sans-serif" font-size="9" fill="#475569">活动ID</text>
+<rect x="1740" y="721" width="460" height="21" fill="#f8fafc"/>
+<line x1="1748" y1="742" x2="2192" y2="742" stroke="#eef2f7" stroke-width="1"/>
+<text x="1794" y="734.7" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="9.5" font-weight="600" fill="#0f172a">quantity</text>
+<text x="1936" y="734.7" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="8.5" fill="#64748b">INT UNSIGNED</text>
+<text x="2048" y="734.7" font-family="'Microsoft YaHei','PingFang SC','Noto Sans CJK SC','Segoe UI',sans-serif" font-size="9" fill="#475569">数量/MVP=1</text>
+<line x1="1748" y1="763" x2="2192" y2="763" stroke="#eef2f7" stroke-width="1"/>
+<text x="1794" y="755.7" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="9.5" font-weight="600" fill="#0f172a">unit_price</text>
+<text x="1936" y="755.7" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="8.5" fill="#64748b">DECIMAL(10,2)</text>
+<text x="2048" y="755.7" font-family="'Microsoft YaHei','PingFang SC','Noto Sans CJK SC','Segoe UI',sans-serif" font-size="9" fill="#475569">单价快照</text>
+<rect x="1740" y="763" width="460" height="21" fill="#f8fafc"/>
+<line x1="1748" y1="784" x2="2192" y2="784" stroke="#eef2f7" stroke-width="1"/>
+<text x="1794" y="776.7" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="9.5" font-weight="600" fill="#0f172a">amount</text>
+<text x="1936" y="776.7" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="8.5" fill="#64748b">DECIMAL(10,2)</text>
+<text x="2048" y="776.7" font-family="'Microsoft YaHei','PingFang SC','Noto Sans CJK SC','Segoe UI',sans-serif" font-size="9" fill="#475569">应付金额</text>
+<line x1="1748" y1="805" x2="2192" y2="805" stroke="#eef2f7" stroke-width="1"/>
+<rect x="1750.0" y="788.5" width="16.0" height="12" rx="3" fill="#f1f5f9" stroke="#cbd5e1" stroke-width="0.8"/><text x="1758.0" y="797.5" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="7" font-weight="700" fill="#475569" text-anchor="middle">IX</text>
+<text x="1794" y="797.7" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="9.5" font-weight="600" fill="#0f172a">status</text>
+<text x="1936" y="797.7" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="8.5" fill="#64748b">TINYINT UNSIGNED</text>
+<text x="2048" y="797.7" font-family="'Microsoft YaHei','PingFang SC','Noto Sans CJK SC','Segoe UI',sans-serif" font-size="9" fill="#475569">0待支付/1已付/2关闭</text>
+<rect x="1740" y="805" width="460" height="21" fill="#f8fafc"/>
+<line x1="1748" y1="826" x2="2192" y2="826" stroke="#eef2f7" stroke-width="1"/>
+<rect x="1750.0" y="809.5" width="16.0" height="12" rx="3" fill="#dbeafe" stroke="#93c5fd" stroke-width="0.8"/><text x="1758.0" y="818.5" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="7" font-weight="700" fill="#1d4ed8" text-anchor="middle">UK</text>
+<text x="1794" y="818.7" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="9.5" font-weight="600" fill="#0f172a">active_flag</text>
+<text x="1936" y="818.7" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="8.5" fill="#64748b">TINYINT(生成列)</text>
+<text x="2048" y="818.7" font-family="'Microsoft YaHei','PingFang SC','Noto Sans CJK SC','Segoe UI',sans-serif" font-size="9" fill="#475569">有效=1/关闭=NULL</text>
+<line x1="1748" y1="847" x2="2192" y2="847" stroke="#eef2f7" stroke-width="1"/>
+<text x="1794" y="839.7" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="9.5" font-weight="600" fill="#0f172a">paid_at</text>
+<text x="1936" y="839.7" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="8.5" fill="#64748b">DATETIME(3)</text>
+<text x="2048" y="839.7" font-family="'Microsoft YaHei','PingFang SC','Noto Sans CJK SC','Segoe UI',sans-serif" font-size="9" fill="#475569">支付时间</text>
+<rect x="1740" y="847" width="460" height="21" fill="#f8fafc"/>
+<line x1="1748" y1="868" x2="2192" y2="868" stroke="#eef2f7" stroke-width="1"/>
+<text x="1794" y="860.7" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="9.5" font-weight="600" fill="#0f172a">pay_trade_no</text>
+<text x="1936" y="860.7" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="8.5" fill="#64748b">VARCHAR(64)</text>
+<text x="2048" y="860.7" font-family="'Microsoft YaHei','PingFang SC','Noto Sans CJK SC','Segoe UI',sans-serif" font-size="9" fill="#475569">支付流水号</text>
+<line x1="1748" y1="889" x2="2192" y2="889" stroke="#eef2f7" stroke-width="1"/>
+<text x="1794" y="881.7" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="9.5" font-weight="600" fill="#0f172a">closed_at</text>
+<text x="1936" y="881.7" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="8.5" fill="#64748b">DATETIME(3)</text>
+<text x="2048" y="881.7" font-family="'Microsoft YaHei','PingFang SC','Noto Sans CJK SC','Segoe UI',sans-serif" font-size="9" fill="#475569">关单时间</text>
+<rect x="1740" y="889" width="460" height="21" fill="#f8fafc"/>
+<line x1="1748" y1="910" x2="2192" y2="910" stroke="#eef2f7" stroke-width="1"/>
+<text x="1794" y="902.7" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="9.5" font-weight="600" fill="#0f172a">created_at</text>
+<text x="1936" y="902.7" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="8.5" fill="#64748b">DATETIME(3)</text>
+<text x="2048" y="902.7" font-family="'Microsoft YaHei','PingFang SC','Noto Sans CJK SC','Segoe UI',sans-serif" font-size="9" fill="#475569">下单时间</text>
+<line x1="1748" y1="931" x2="2192" y2="931" stroke="#eef2f7" stroke-width="1"/>
+<text x="1794" y="923.7" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="9.5" font-weight="600" fill="#0f172a">updated_at</text>
+<text x="1936" y="923.7" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="8.5" fill="#64748b">DATETIME(3)</text>
+<text x="2048" y="923.7" font-family="'Microsoft YaHei','PingFang SC','Noto Sans CJK SC','Segoe UI',sans-serif" font-size="9" fill="#475569">更新时间</text>
+</g>
+<text x="1754" y="594" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="13.5" font-weight="700" fill="#ffffff">t_seckill_order</text>
+<text x="2186" y="594" font-family="'Microsoft YaHei','PingFang SC','Noto Sans CJK SC','Segoe UI',sans-serif" font-size="9.5" fill="#ffffff" fill-opacity="0.88" text-anchor="end">秒杀订单</text>
+<rect x="40" y="1180" width="1060" height="250" rx="10" fill="#ffffff" stroke="#e2e8f0" stroke-width="1"/>
+<path d="M50,1180 H1090 Q1100,1180 1100,1190 V1210 H40 V1190 Q40,1180 50,1180 Z" fill="#0f172a"/>
+<text x="54" y="1200" font-family="'Microsoft YaHei','PingFang SC','Noto Sans CJK SC','Segoe UI',sans-serif" font-size="10.5" font-weight="700" fill="#ffffff">核心关系（用户 / 内容 / 互动）</text>
+<text x="390" y="1200" font-family="'Microsoft YaHei','PingFang SC','Noto Sans CJK SC','Segoe UI',sans-serif" font-size="8.5" fill="#ffffff" fill-opacity="0.65">外键字段</text>
+<text x="610" y="1200" font-family="'Microsoft YaHei','PingFang SC','Noto Sans CJK SC','Segoe UI',sans-serif" font-size="8.5" fill="#ffffff" fill-opacity="0.65">基数</text>
+<text x="680" y="1200" font-family="'Microsoft YaHei','PingFang SC','Noto Sans CJK SC','Segoe UI',sans-serif" font-size="8.5" fill="#ffffff" fill-opacity="0.65">说明</text>
+<line x1="48" y1="1232" x2="1092" y2="1232" stroke="#eef2f7" stroke-width="1"/>
+<text x="52" y="1225" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="9.2" fill="#0f172a">t_user → t_post</text>
+<text x="390" y="1225" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="9.2" fill="#475569">t_post.user_id</text>
+<text x="610" y="1225" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="9.2" font-weight="700" fill="#2563eb">1:N</text>
+<text x="680" y="1225" font-family="'Microsoft YaHei','PingFang SC','Noto Sans CJK SC','Segoe UI',sans-serif" font-size="9.2" fill="#475569">作者</text>
+<rect x="40" y="1232" width="1060" height="22" fill="#f8fafc"/>
+<line x1="48" y1="1254" x2="1092" y2="1254" stroke="#eef2f7" stroke-width="1"/>
+<text x="52" y="1247" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="9.2" fill="#0f172a">t_user → t_user_follow</text>
+<text x="390" y="1247" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="9.2" fill="#475569">follower_id</text>
+<text x="610" y="1247" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="9.2" font-weight="700" fill="#2563eb">1:N</text>
+<text x="680" y="1247" font-family="'Microsoft YaHei','PingFang SC','Noto Sans CJK SC','Segoe UI',sans-serif" font-size="9.2" fill="#475569">关注者</text>
+<line x1="48" y1="1276" x2="1092" y2="1276" stroke="#eef2f7" stroke-width="1"/>
+<text x="52" y="1269" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="9.2" fill="#0f172a">t_user → t_user_follow</text>
+<text x="390" y="1269" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="9.2" fill="#475569">followee_id</text>
+<text x="610" y="1269" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="9.2" font-weight="700" fill="#2563eb">1:N</text>
+<text x="680" y="1269" font-family="'Microsoft YaHei','PingFang SC','Noto Sans CJK SC','Segoe UI',sans-serif" font-size="9.2" fill="#475569">被关注者</text>
+<rect x="40" y="1276" width="1060" height="22" fill="#f8fafc"/>
+<line x1="48" y1="1298" x2="1092" y2="1298" stroke="#eef2f7" stroke-width="1"/>
+<text x="52" y="1291" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="9.2" fill="#0f172a">t_post → t_post_image</text>
+<text x="390" y="1291" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="9.2" fill="#475569">post_id</text>
+<text x="610" y="1291" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="9.2" font-weight="700" fill="#2563eb">1:N</text>
+<text x="680" y="1291" font-family="'Microsoft YaHei','PingFang SC','Noto Sans CJK SC','Segoe UI',sans-serif" font-size="9.2" fill="#475569">帖子图片</text>
+<line x1="48" y1="1320" x2="1092" y2="1320" stroke="#eef2f7" stroke-width="1"/>
+<text x="52" y="1313" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="9.2" fill="#0f172a">t_post → t_post_tag</text>
+<text x="390" y="1313" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="9.2" fill="#475569">post_id</text>
+<text x="610" y="1313" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="9.2" font-weight="700" fill="#2563eb">1:N</text>
+<text x="680" y="1313" font-family="'Microsoft YaHei','PingFang SC','Noto Sans CJK SC','Segoe UI',sans-serif" font-size="9.2" fill="#475569">帖子标签</text>
+<rect x="40" y="1320" width="1060" height="22" fill="#f8fafc"/>
+<line x1="48" y1="1342" x2="1092" y2="1342" stroke="#eef2f7" stroke-width="1"/>
+<text x="52" y="1335" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="9.2" fill="#0f172a">t_tag → t_post_tag</text>
+<text x="390" y="1335" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="9.2" fill="#475569">tag_id</text>
+<text x="610" y="1335" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="9.2" font-weight="700" fill="#2563eb">1:N</text>
+<text x="680" y="1335" font-family="'Microsoft YaHei','PingFang SC','Noto Sans CJK SC','Segoe UI',sans-serif" font-size="9.2" fill="#475569">标签</text>
+<line x1="48" y1="1364" x2="1092" y2="1364" stroke="#eef2f7" stroke-width="1"/>
+<text x="52" y="1357" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="9.2" fill="#0f172a">t_post → t_like</text>
+<text x="390" y="1357" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="9.2" fill="#475569">post_id</text>
+<text x="610" y="1357" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="9.2" font-weight="700" fill="#2563eb">1:N</text>
+<text x="680" y="1357" font-family="'Microsoft YaHei','PingFang SC','Noto Sans CJK SC','Segoe UI',sans-serif" font-size="9.2" fill="#475569">被点赞帖子</text>
+<rect x="40" y="1364" width="1060" height="22" fill="#f8fafc"/>
+<line x1="48" y1="1386" x2="1092" y2="1386" stroke="#eef2f7" stroke-width="1"/>
+<text x="52" y="1379" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="9.2" fill="#0f172a">t_user → t_like</text>
+<text x="390" y="1379" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="9.2" fill="#475569">user_id</text>
+<text x="610" y="1379" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="9.2" font-weight="700" fill="#2563eb">1:N</text>
+<text x="680" y="1379" font-family="'Microsoft YaHei','PingFang SC','Noto Sans CJK SC','Segoe UI',sans-serif" font-size="9.2" fill="#475569">点赞用户</text>
+<line x1="48" y1="1408" x2="1092" y2="1408" stroke="#eef2f7" stroke-width="1"/>
+<text x="52" y="1401" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="9.2" fill="#0f172a">t_post → t_collect</text>
+<text x="390" y="1401" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="9.2" fill="#475569">post_id</text>
+<text x="610" y="1401" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="9.2" font-weight="700" fill="#2563eb">1:N</text>
+<text x="680" y="1401" font-family="'Microsoft YaHei','PingFang SC','Noto Sans CJK SC','Segoe UI',sans-serif" font-size="9.2" fill="#475569">被收藏帖子</text>
+<rect x="40" y="1408" width="1060" height="22" fill="#f8fafc"/>
+<line x1="48" y1="1430" x2="1092" y2="1430" stroke="#eef2f7" stroke-width="1"/>
+<text x="52" y="1423" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="9.2" fill="#0f172a">t_user → t_collect</text>
+<text x="390" y="1423" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="9.2" fill="#475569">user_id</text>
+<text x="610" y="1423" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="9.2" font-weight="700" fill="#2563eb">1:N</text>
+<text x="680" y="1423" font-family="'Microsoft YaHei','PingFang SC','Noto Sans CJK SC','Segoe UI',sans-serif" font-size="9.2" fill="#475569">收藏用户</text>
+<rect x="1140" y="1180" width="1060" height="184" rx="10" fill="#ffffff" stroke="#e2e8f0" stroke-width="1"/>
+<path d="M1150,1180 H2190 Q2200,1180 2200,1190 V1210 H1140 V1190 Q1140,1180 1150,1180 Z" fill="#0f172a"/>
+<text x="1154" y="1200" font-family="'Microsoft YaHei','PingFang SC','Noto Sans CJK SC','Segoe UI',sans-serif" font-size="10.5" font-weight="700" fill="#ffffff">扩展关系（评论 / 秒杀 / 审计）</text>
+<text x="1490" y="1200" font-family="'Microsoft YaHei','PingFang SC','Noto Sans CJK SC','Segoe UI',sans-serif" font-size="8.5" fill="#ffffff" fill-opacity="0.65">外键字段</text>
+<text x="1710" y="1200" font-family="'Microsoft YaHei','PingFang SC','Noto Sans CJK SC','Segoe UI',sans-serif" font-size="8.5" fill="#ffffff" fill-opacity="0.65">基数</text>
+<text x="1780" y="1200" font-family="'Microsoft YaHei','PingFang SC','Noto Sans CJK SC','Segoe UI',sans-serif" font-size="8.5" fill="#ffffff" fill-opacity="0.65">说明</text>
+<line x1="1148" y1="1232" x2="2192" y2="1232" stroke="#eef2f7" stroke-width="1"/>
+<text x="1152" y="1225" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="9.2" fill="#0f172a">t_post → t_comment</text>
+<text x="1490" y="1225" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="9.2" fill="#475569">post_id</text>
+<text x="1710" y="1225" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="9.2" font-weight="700" fill="#2563eb">1:N</text>
+<text x="1780" y="1225" font-family="'Microsoft YaHei','PingFang SC','Noto Sans CJK SC','Segoe UI',sans-serif" font-size="9.2" fill="#475569">帖子评论</text>
+<rect x="1140" y="1232" width="1060" height="22" fill="#f8fafc"/>
+<line x1="1148" y1="1254" x2="2192" y2="1254" stroke="#eef2f7" stroke-width="1"/>
+<text x="1152" y="1247" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="9.2" fill="#0f172a">t_user → t_comment</text>
+<text x="1490" y="1247" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="9.2" fill="#475569">user_id</text>
+<text x="1710" y="1247" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="9.2" font-weight="700" fill="#2563eb">1:N</text>
+<text x="1780" y="1247" font-family="'Microsoft YaHei','PingFang SC','Noto Sans CJK SC','Segoe UI',sans-serif" font-size="9.2" fill="#475569">评论作者</text>
+<line x1="1148" y1="1276" x2="2192" y2="1276" stroke="#eef2f7" stroke-width="1"/>
+<text x="1152" y="1269" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="9.2" fill="#0f172a">t_user → t_comment</text>
+<text x="1490" y="1269" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="9.2" fill="#475569">reply_to_user_id</text>
+<text x="1710" y="1269" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="9.2" font-weight="700" fill="#2563eb">1:N</text>
+<text x="1780" y="1269" font-family="'Microsoft YaHei','PingFang SC','Noto Sans CJK SC','Segoe UI',sans-serif" font-size="9.2" fill="#475569">被回复人</text>
+<rect x="1140" y="1276" width="1060" height="22" fill="#f8fafc"/>
+<line x1="1148" y1="1298" x2="2192" y2="1298" stroke="#eef2f7" stroke-width="1"/>
+<text x="1152" y="1291" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="9.2" fill="#0f172a">t_user → t_seckill_order</text>
+<text x="1490" y="1291" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="9.2" fill="#475569">user_id</text>
+<text x="1710" y="1291" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="9.2" font-weight="700" fill="#2563eb">1:N</text>
+<text x="1780" y="1291" font-family="'Microsoft YaHei','PingFang SC','Noto Sans CJK SC','Segoe UI',sans-serif" font-size="9.2" fill="#475569">下单用户</text>
+<line x1="1148" y1="1320" x2="2192" y2="1320" stroke="#eef2f7" stroke-width="1"/>
+<text x="1152" y="1313" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="9.2" fill="#0f172a">t_seckill_activity → t_seckill_order</text>
+<text x="1490" y="1313" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="9.2" fill="#475569">activity_id</text>
+<text x="1710" y="1313" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="9.2" font-weight="700" fill="#2563eb">1:N</text>
+<text x="1780" y="1313" font-family="'Microsoft YaHei','PingFang SC','Noto Sans CJK SC','Segoe UI',sans-serif" font-size="9.2" fill="#475569">活动订单</text>
+<rect x="1140" y="1320" width="1060" height="22" fill="#f8fafc"/>
+<line x1="1148" y1="1342" x2="2192" y2="1342" stroke="#eef2f7" stroke-width="1"/>
+<text x="1152" y="1335" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="9.2" fill="#0f172a">t_user → t_seckill_activity</text>
+<text x="1490" y="1335" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="9.2" fill="#475569">created_by</text>
+<text x="1710" y="1335" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="9.2" font-weight="700" fill="#2563eb">1:N</text>
+<text x="1780" y="1335" font-family="'Microsoft YaHei','PingFang SC','Noto Sans CJK SC','Segoe UI',sans-serif" font-size="9.2" fill="#475569">创建管理员</text>
+<line x1="1148" y1="1364" x2="2192" y2="1364" stroke="#eef2f7" stroke-width="1"/>
+<text x="1152" y="1357" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="9.2" fill="#0f172a">t_user → t_post</text>
+<text x="1490" y="1357" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="9.2" fill="#475569">audited_by</text>
+<text x="1710" y="1357" font-family="Consolas,'Cascadia Code','Courier New',monospace" font-size="9.2" font-weight="700" fill="#2563eb">1:N</text>
+<text x="1780" y="1357" font-family="'Microsoft YaHei','PingFang SC','Noto Sans CJK SC','Segoe UI',sans-serif" font-size="9.2" fill="#475569">审核管理员</text>
+<text x="40" y="1468" font-family="'Microsoft YaHei','PingFang SC','Noto Sans CJK SC','Segoe UI',sans-serif" font-size="9.5" fill="#64748b">说明：物理上不建外键，关系由应用层 + 索引保证；键标记只标出主要索引，完整索引见 03 文档。</text>
+<text x="40" y="1486" font-family="'Microsoft YaHei','PingFang SC','Noto Sans CJK SC','Segoe UI',sans-serif" font-size="9.5" fill="#64748b">未落库：Feed / 热榜 / 点赞实时集合 / 秒杀库存 / 验证码 / AI 会话在 Redis；帖子图片与头像在 OSS。</text>
+</svg>
