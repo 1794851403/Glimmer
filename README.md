@@ -37,6 +37,7 @@ glimmer/
 
 - [文档索引](docs/README.md)
 - [产品需求文档 PRD](docs/01-产品需求文档.md)
+- [用户故事地图](docs/01-用户故事地图.png)（[HTML 源](docs/01-用户故事地图.html)）
 
 ## 开发路线
 

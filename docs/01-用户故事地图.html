@@ -1,0 +1,434 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>微光 Glimmer · 用户故事地图</title>
+<style>
+  @page { size: 2600px 1560px; margin: 0; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    width: 2600px;
+    min-height: 1520px;
+    padding: 30px 36px 24px;
+    background: #f1f5f9;
+    color: #0f172a;
+    font-family: "Microsoft YaHei", "PingFang SC", "Noto Sans CJK SC", "Segoe UI", sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* ---------- 头部 ---------- */
+  .hero { display: flex; justify-content: space-between; align-items: flex-end; gap: 24px; margin-bottom: 12px; }
+  .kicker { font: 700 11px/1.4 Consolas, "Cascadia Code", monospace; letter-spacing: 1.6px; color: #2563eb; }
+  h1 { margin: 6px 0 6px; font-size: 32px; line-height: 1.1; letter-spacing: .5px; }
+  .sub { margin: 0; font-size: 13px; color: #475569; }
+  .stats { display: flex; gap: 10px; flex-shrink: 0; }
+  .stat {
+    width: 90px; padding: 8px 10px; text-align: center;
+    background: #fff; border: 1px solid #e2e8f0; border-radius: 12px;
+    box-shadow: 0 2px 5px rgba(15,23,42,.06);
+  }
+  .stat b { display: block; font-size: 22px; line-height: 1.1; color: #0f172a; }
+  .stat span { font-size: 10px; color: #64748b; }
+
+  /* ---------- 图例 ---------- */
+  .legend {
+    display: flex; align-items: center; gap: 8px; margin: 10px 0 14px;
+    padding: 9px 12px; background: #fff; border: 1px solid #e2e8f0; border-radius: 12px;
+  }
+  .legend-title { font-size: 11px; font-weight: 700; color: #334155; margin-right: 2px; }
+  .pill { font-size: 11px; font-weight: 700; padding: 4px 8px; border-radius: 6px; border: 1px solid; white-space: nowrap; }
+  .pill.p0 { color: #1d4ed8; background: #eff6ff; border-color: #bfdbfe; }
+  .pill.p1 { color: #047857; background: #ecfdf5; border-color: #a7f3d0; }
+  .pill.p2 { color: #475569; background: #f8fafc; border-color: #cbd5e1; }
+  .pill.ai { color: #6d28d9; background: #f5f3ff; border-color: #ddd6fe; }
+  .pill.us { color: #475569; background: #fff; border-color: #cbd5e1; font-family: Consolas, "Cascadia Code", monospace; }
+  .pill.support { color: #64748b; background: #fff; border: 1px dashed #94a3b8; }
+  .pill.admin { color: #fff; background: #6d28d9; border-color: #6d28d9; }
+  .legend-note { margin-left: auto; font-size: 11px; color: #64748b; }
+
+  /* ---------- 网格与骨架 ---------- */
+  .grid { display: grid; grid-template-columns: 108px repeat(9, 1fr); gap: 12px; }
+  .backbone { position: relative; align-items: stretch; margin-bottom: 12px; }
+  .backbone::before {
+    content: ""; position: absolute; left: 120px; right: 0; top: 50%;
+    height: 2px; background: #cbd5e1; z-index: 0;
+  }
+  .journey-label { display: flex; flex-direction: column; justify-content: center; font-size: 11px; font-weight: 700; color: #334155; }
+  .journey-label span { font-weight: 400; color: #94a3b8; font-size: 10px; margin-top: 3px; }
+  .chip {
+    position: relative; z-index: 1; min-height: 76px; padding: 10px 12px;
+    background: #0f172a; color: #fff; border-radius: 14px;
+    box-shadow: 0 3px 8px rgba(15,23,42,.16);
+  }
+  .chip .num { font: 700 10px Consolas, "Cascadia Code", monospace; letter-spacing: 1px; color: #93c5fd; }
+  .chip .title { margin-top: 3px; font-size: 14.5px; font-weight: 700; white-space: nowrap; }
+  .chip .role { margin-top: 4px; font-size: 10px; color: #cbd5e1; }
+  .chip.admin { background: #5b21b6; }
+  .chip.admin .num { color: #ddd6fe; }
+  .chip.admin .role { color: #ede9fe; }
+
+  /* ---------- 泳道 ---------- */
+  .lane { padding: 12px; border-radius: 16px; align-items: start; }
+  .lane-p0 { background: #eff6ff; border: 1px solid #dbeafe; }
+  .lane-p1 { background: #ecfdf5; border: 1px solid #d1fae5; }
+  .lane-p2 { background: #f8fafc; border: 1px solid #e2e8f0; }
+  .lane-label { padding-top: 4px; }
+  .lane-code { display: inline-block; font: 800 21px/1 Consolas, "Cascadia Code", monospace; color: #1d4ed8; }
+  .lane-p1 .lane-code { color: #047857; }
+  .lane-p2 .lane-code { color: #64748b; }
+  .lane-name { display: block; margin-top: 5px; font-size: 11.5px; font-weight: 700; color: #334155; }
+  .lane-desc { display: block; margin-top: 3px; font-size: 10px; color: #64748b; line-height: 1.35; }
+  .stack { display: flex; flex-direction: column; gap: 10px; }
+
+  /* ---------- 故事卡 ---------- */
+  .card {
+    position: relative; height: 120px; padding: 10px 12px 9px;
+    background: #fff; border: 1px solid #e2e8f0; border-left: 4px solid #2563eb;
+    border-radius: 12px; box-shadow: 0 2px 5px rgba(15,23,42,.07);
+    overflow: hidden;
+  }
+  .lane-p1 .card { border-left-color: #059669; }
+  .lane-p2 .card { border-left-color: #94a3b8; }
+  .card.support { border-left-style: dashed; background: #f8fafc; }
+  .card-top { display: flex; align-items: center; gap: 5px; min-height: 14px; }
+  .fid { font: 700 10.5px Consolas, "Cascadia Code", monospace; color: #1d4ed8; letter-spacing: .2px; white-space: nowrap; }
+  .lane-p1 .fid { color: #047857; }
+  .lane-p2 .fid { color: #64748b; }
+  .badge { font: 700 9px/1 "Microsoft YaHei", sans-serif; padding: 2px 5px; border-radius: 4px; border: 1px solid; white-space: nowrap; }
+  .badge-ai { color: #6d28d9; background: #f5f3ff; border-color: #ddd6fe; }
+  .badge-support { color: #64748b; background: #fff; border: 1px dashed #94a3b8; }
+  .us { margin-left: auto; font: 700 9px Consolas, "Cascadia Code", monospace; color: #64748b; background: #f1f5f9; border: 1px solid #e2e8f0; border-radius: 4px; padding: 1px 4px; white-space: nowrap; }
+  .card-title { margin: 5px 0 4px; font-size: 15px; font-weight: 700; line-height: 1.25; color: #0f172a; }
+  .card-story { font-size: 12.5px; line-height: 1.45; color: #475569; }
+  .lane-p2 .card-title { color: #334155; }
+  .lane-p2 .card-story { color: #64748b; }
+
+  /* ---------- MVP 分界线 ---------- */
+  .release-line { display: flex; align-items: center; gap: 12px; margin: 8px 0 10px; }
+  .release-line .line { flex: 1; border-top: 2px dashed #94a3b8; }
+  .release-line .label { font: 700 11px Consolas, "Cascadia Code", monospace; color: #475569; letter-spacing: .5px; }
+  .release-line .note { font-size: 10.5px; color: #94a3b8; }
+
+  /* ---------- 页脚 ---------- */
+  .footnotes {
+    display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px;
+    margin-top: 12px; padding: 10px 12px;
+    background: #fff; border: 1px solid #e2e8f0; border-radius: 12px;
+  }
+  .footnote { font-size: 11px; line-height: 1.5; color: #64748b; }
+  .footnote b { color: #334155; }
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <div>
+    <div class="kicker">GLIMMER · PRODUCT STORY MAP · 2026-10-19</div>
+    <h1>微光 Glimmer · 用户故事地图</h1>
+    <p class="sub">从逛内容、抢好物到平台治理：一张图对齐角色、功能与 MVP 发布顺序</p>
+  </div>
+  <div class="stats">
+    <div class="stat"><b>31</b><span>项功能</span></div>
+    <div class="stat"><b>12</b><span>条用户故事</span></div>
+    <div class="stat"><b>9</b><span>段旅程</span></div>
+    <div class="stat"><b>3</b><span>类角色</span></div>
+  </div>
+</header>
+
+<div class="legend">
+  <span class="legend-title">图例</span>
+  <span class="pill p0">P0 核心必做</span>
+  <span class="pill p1">P1 重要</span>
+  <span class="pill p2">P2 可选 / 演进</span>
+  <span class="pill ai">AI 能力</span>
+  <span class="pill us">US-xx 用户故事</span>
+  <span class="pill support">支撑任务</span>
+  <span class="pill admin">管理员视角</span>
+  <span class="legend-note">优先级沿用 PRD v1.1 · P0 + P1 = MVP</span>
+</div>
+
+<!-- 旅程骨架 -->
+<div class="grid backbone">
+  <div class="journey-label">用户旅程<span>按使用顺序 →</span></div>
+  <div class="chip"><div class="num">01</div><div class="title">🚪 进入社区</div><div class="role">游客 / 用户</div></div>
+  <div class="chip"><div class="num">02</div><div class="title">🧭 逛一逛</div><div class="role">游客 / 用户</div></div>
+  <div class="chip"><div class="num">03</div><div class="title">📖 看详情 &amp; 问 AI</div><div class="role">游客 / 用户</div></div>
+  <div class="chip"><div class="num">04</div><div class="title">💬 互动交流</div><div class="role">注册用户</div></div>
+  <div class="chip"><div class="num">05</div><div class="title">⭐ 关注追更</div><div class="role">注册用户</div></div>
+  <div class="chip"><div class="num">06</div><div class="title">✍️ 创作发布</div><div class="role">创作者</div></div>
+  <div class="chip"><div class="num">07</div><div class="title">⚡ 边逛边抢</div><div class="role">注册用户</div></div>
+  <div class="chip"><div class="num">08</div><div class="title">👤 个人中心</div><div class="role">注册用户</div></div>
+  <div class="chip admin"><div class="num">09</div><div class="title">🛡️ 平台运营</div><div class="role">管理员</div></div>
+</div>
+
+<!-- P0 -->
+<section class="grid lane lane-p0">
+  <div class="lane-label">
+    <span class="lane-code">P0</span>
+    <span class="lane-name">MVP 必须</span>
+    <span class="lane-desc">核心链路<br>缺一不可</span>
+  </div>
+  <div class="stack">
+    <div class="card support">
+      <div class="card-top"><span class="fid">S-01</span><span class="badge badge-support">支撑</span></div>
+      <div class="card-title">游客模式</div>
+      <div class="card-story">作为游客，我想未登录先逛，以便低门槛体验社区。</div>
+    </div>
+    <div class="card">
+      <div class="card-top"><span class="fid">F-01</span><span class="us">US-02</span></div>
+      <div class="card-title">手机号 + 验证码登录</div>
+      <div class="card-story">作为用户，我想免密码快速登录，以便获得完整功能。</div>
+    </div>
+    <div class="card">
+      <div class="card-top"><span class="fid">F-02</span><span class="us">US-02</span></div>
+      <div class="card-title">JWT 登录态与鉴权</div>
+      <div class="card-story">作为用户，我想安全保持登录态，以便访问受保护操作。</div>
+    </div>
+  </div>
+
+  <div class="stack">
+    <div class="card">
+      <div class="card-top"><span class="fid">F-06</span><span class="us">US-01</span></div>
+      <div class="card-title">帖子列表（时间/热度）</div>
+      <div class="card-story">作为访客，我想按时间或热度浏览，以便快速发现内容。</div>
+    </div>
+  </div>
+
+  <div class="stack">
+    <div class="card">
+      <div class="card-top"><span class="fid">F-07</span><span class="us">US-01</span></div>
+      <div class="card-title">帖子详情</div>
+      <div class="card-story">作为访客，我想看清图文与互动数据，以便理解内容。</div>
+    </div>
+  </div>
+
+  <div class="stack">
+    <div class="card">
+      <div class="card-top"><span class="fid">F-11</span><span class="us">US-04</span></div>
+      <div class="card-title">点赞 / 取消点赞</div>
+      <div class="card-story">作为用户，我想点赞或取消，以便表达对内容的喜欢。</div>
+    </div>
+    <div class="card">
+      <div class="card-top"><span class="fid">F-13</span><span class="us">US-04</span></div>
+      <div class="card-title">评论 / 回复</div>
+      <div class="card-story">作为用户，我想评论和回复，以便与作者、同好交流。</div>
+    </div>
+    <div class="card">
+      <div class="card-top"><span class="fid">F-14</span><span class="us">US-06</span></div>
+      <div class="card-title">实时弹幕</div>
+      <div class="card-story">作为用户，我想边看边发弹幕，以便实时参与互动。</div>
+    </div>
+  </div>
+
+  <div class="stack">
+    <div class="card">
+      <div class="card-top"><span class="fid">F-04</span><span class="us">US-05</span></div>
+      <div class="card-title">关注 / 取关</div>
+      <div class="card-story">作为用户，我想关注喜欢的作者，以便持续看到更新。</div>
+    </div>
+    <div class="card">
+      <div class="card-top"><span class="fid">F-16</span><span class="us">US-05</span></div>
+      <div class="card-title">关注流（推拉结合）</div>
+      <div class="card-story">作为用户，我想在关注流看更新，以便不错过熟悉作者。</div>
+    </div>
+  </div>
+
+  <div class="stack">
+    <div class="card">
+      <div class="card-top"><span class="fid">F-05</span><span class="us">US-03</span></div>
+      <div class="card-title">发布图文帖子</div>
+      <div class="card-story">作为创作者，我想发布图文和标签，以便分享生活。</div>
+    </div>
+    <div class="card">
+      <div class="card-top"><span class="fid">F-09</span><span class="us">US-03</span></div>
+      <div class="card-title">图片上传（OSS/本地）</div>
+      <div class="card-story">作为创作者，我想上传多张图片，以便图文并茂地表达。</div>
+    </div>
+  </div>
+
+  <div class="stack">
+    <div class="card">
+      <div class="card-top"><span class="fid">F-20</span><span class="us">US-07</span></div>
+      <div class="card-title">限时秒杀抢购</div>
+      <div class="card-story">作为用户，我想在活动窗口抢购，以便买到限量好物。</div>
+    </div>
+    <div class="card">
+      <div class="card-top"><span class="fid">F-21</span><span class="us">US-07/08</span></div>
+      <div class="card-title">异步下单 / 超时关单</div>
+      <div class="card-story">作为用户，我想追踪下单结果，以便确认是否抢到。</div>
+    </div>
+  </div>
+
+  <div class="stack"></div>
+
+  <div class="stack">
+    <div class="card">
+      <div class="card-top"><span class="fid">F-19 · F-29</span><span class="us">US-10</span></div>
+      <div class="card-title">秒杀活动管理</div>
+      <div class="card-story">作为管理员，我想创建和上下架活动，以便发起限时抢购。</div>
+    </div>
+  </div>
+</section>
+
+<!-- P1 -->
+<section class="grid lane lane-p1">
+  <div class="lane-label">
+    <span class="lane-code">P1</span>
+    <span class="lane-name">MVP 增强</span>
+    <span class="lane-desc">完整体验<br>重要支撑</span>
+  </div>
+  <div class="stack">
+    <div class="card">
+      <div class="card-top"><span class="fid">F-03</span><span class="us">US-02</span></div>
+      <div class="card-title">个人资料查看 / 编辑</div>
+      <div class="card-story">作为用户，我想维护头像昵称简介，以便展示自己。</div>
+    </div>
+  </div>
+
+  <div class="stack">
+    <div class="card">
+      <div class="card-top"><span class="fid">F-17</span><span class="us">US-01</span></div>
+      <div class="card-title">推荐流（热度/标签）</div>
+      <div class="card-story">作为用户，我想刷到符合兴趣的内容，以便持续逛下去。</div>
+    </div>
+    <div class="card">
+      <div class="card-top"><span class="fid">F-18</span><span class="us">US-01</span></div>
+      <div class="card-title">帖子热榜</div>
+      <div class="card-story">作为用户，我想看到热门话题，以便跟上社区趋势。</div>
+    </div>
+    <div class="card">
+      <div class="card-top"><span class="fid">F-08</span><span class="us">US-01</span></div>
+      <div class="card-title">关键词搜索</div>
+      <div class="card-story">作为用户，我想按关键词找帖子，以便直达感兴趣的内容。</div>
+    </div>
+  </div>
+
+  <div class="stack">
+    <div class="card">
+      <div class="card-top"><span class="fid">F-31</span><span class="badge badge-ai">AI</span><span class="us">US-12</span></div>
+      <div class="card-title">AI 帖子助手（流式）</div>
+      <div class="card-story">作为用户，我想就帖子多轮追问，以便延伸理解与求推荐。</div>
+    </div>
+  </div>
+
+  <div class="stack">
+    <div class="card">
+      <div class="card-top"><span class="fid">F-12</span><span class="us">US-04</span></div>
+      <div class="card-title">收藏 / 取消收藏</div>
+      <div class="card-story">作为用户，我想收藏好内容，以便之后再看。</div>
+    </div>
+  </div>
+
+  <div class="stack"></div>
+
+  <div class="stack">
+    <div class="card">
+      <div class="card-top"><span class="fid">F-23</span><span class="badge badge-ai">AI</span><span class="us">US-09</span></div>
+      <div class="card-title">AI 自动打标签 / 分类</div>
+      <div class="card-story">作为创作者，我想自动生成标签，以便省去手动打标。</div>
+    </div>
+  </div>
+
+  <div class="stack">
+    <div class="card">
+      <div class="card-top"><span class="fid">F-22</span><span class="us">US-08</span></div>
+      <div class="card-title">抢购记录 / 订单查询</div>
+      <div class="card-story">作为用户，我想查看抢购记录，以便管理订单。</div>
+    </div>
+  </div>
+
+  <div class="stack">
+    <div class="card support">
+      <div class="card-top"><span class="fid">S-02</span><span class="badge badge-support">支撑</span></div>
+      <div class="card-title">我的帖子（审核/删除）</div>
+      <div class="card-story">作为创作者，我想查看审核状态或删除帖子，以便管理内容。</div>
+    </div>
+    <div class="card support">
+      <div class="card-top"><span class="fid">S-03</span><span class="badge badge-support">支撑</span></div>
+      <div class="card-title">我的收藏 / 关注 / 粉丝</div>
+      <div class="card-story">作为用户，我想集中查看收藏与关注关系，以便管理个人内容。</div>
+    </div>
+  </div>
+
+  <div class="stack">
+    <div class="card">
+      <div class="card-top"><span class="fid">F-10 · F-28</span><span class="us">US-10</span></div>
+      <div class="card-title">内容审核 / 下架 / 恢复</div>
+      <div class="card-story">作为管理员，我想审核与处置内容，以便维护社区秩序。</div>
+    </div>
+    <div class="card">
+      <div class="card-top"><span class="fid">F-24</span><span class="badge badge-ai">AI</span><span class="us">US-11</span></div>
+      <div class="card-title">评论情感分析</div>
+      <div class="card-story">作为管理员，我想看评论情感分布，以便治理负面内容。</div>
+    </div>
+  </div>
+</section>
+
+<div class="release-line">
+  <span class="label">MVP DELIVERY LINE</span>
+  <span class="line"></span>
+  <span class="note">P2 为后续演进，不阻塞 MVP 交付</span>
+</div>
+
+<!-- P2 -->
+<section class="grid lane lane-p2">
+  <div class="lane-label">
+    <span class="lane-code">P2</span>
+    <span class="lane-name">后续演进</span>
+    <span class="lane-desc">可选能力<br>按需排期</span>
+  </div>
+  <div class="stack"></div>
+
+  <div class="stack">
+    <div class="card">
+      <div class="card-top"><span class="fid">F-26</span><span class="badge badge-ai">AI</span></div>
+      <div class="card-title">兴趣智能推荐</div>
+      <div class="card-story">作为用户，我想获得个性化推荐，以便发现更多喜欢的内容。</div>
+    </div>
+  </div>
+
+  <div class="stack">
+    <div class="card">
+      <div class="card-top"><span class="fid">F-25</span><span class="badge badge-ai">AI</span></div>
+      <div class="card-title">帖子 / 评论智能摘要</div>
+      <div class="card-story">作为用户，我想快速抓重点，以便少读长文。</div>
+    </div>
+  </div>
+
+  <div class="stack"></div>
+  <div class="stack"></div>
+  <div class="stack"></div>
+  <div class="stack"></div>
+
+  <div class="stack">
+    <div class="card">
+      <div class="card-top"><span class="fid">F-15</span><span class="us">US-04</span></div>
+      <div class="card-title">互动消息通知</div>
+      <div class="card-story">作为用户，我想收到赞评关注提醒，以便及时回到社区。</div>
+    </div>
+  </div>
+
+  <div class="stack">
+    <div class="card">
+      <div class="card-top"><span class="fid">F-27</span><span class="us">US-10</span></div>
+      <div class="card-title">用户封禁 / 解封</div>
+      <div class="card-story">作为管理员，我想封禁或解封用户，以便维护社区秩序。</div>
+    </div>
+    <div class="card">
+      <div class="card-top"><span class="fid">F-30</span><span class="us">US-10</span></div>
+      <div class="card-title">数据看板</div>
+      <div class="card-story">作为管理员，我想查看运营数据，以便了解社区状态。</div>
+    </div>
+  </div>
+</section>
+
+<footer class="footnotes">
+  <div class="footnote"><b>优先级口径</b>：沿用 PRD v1.1；P0 核心必做、P1 重要、P2 可选。P0 + P1 构成 MVP，P2 不阻塞交付。</div>
+  <div class="footnote"><b>搜索方案</b>：F-08 在 MVP 用 MySQL FULLTEXT(ngram)；ES 属演进能力，不进入首版。</div>
+  <div class="footnote"><b>审核流程</b>：F-10 / F-28 若采用先审后发，「通过/拒绝」进入发布关键路径；「下架/恢复」仍为 P1。</div>
+  <div class="footnote"><b>AI 能力分布</b>：F-23 自动打标、F-24 情感分析、F-25 摘要、F-26 推荐、F-31 流式助手。</div>
+</footer>
+
+</body>
+</html>
