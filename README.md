@@ -12,7 +12,7 @@
 
 ## 技术栈（规划）
 
-- **后端**：Java 17 / Spring Boot 3 / MyBatis-Plus / MySQL 8 / Redis / Redisson / RocketMQ / WebSocket
+- **后端**：Java 17 / Spring Boot 3 / MyBatis-Plus / MySQL 8 / Redis / Redisson / RabbitMQ / WebSocket
 - **AI**：LLM API（帖子自动打标签、评论情感分析、智能摘要）
 - **部署**：Docker / docker-compose
 - **演进**：Spring Cloud Alibaba（Nacos / Gateway / OpenFeign / Sentinel / Seata）+ SkyWalking
@@ -25,6 +25,7 @@ glimmer/
 │   ├── README.md
 │   ├── 01-产品需求文档.md
 │   ├── 02-架构设计文档.md
+│   ├── 03-数据库设计分析.md    (评审稿)
 │   ├── 03-数据库设计文档.md    (待编写)
 │   └── 04-接口设计文档.md      (待编写)
 ├── backend/         # 后端代码（单体）
@@ -43,7 +44,7 @@ glimmer/
 |---|---|---|
 | 1 需求分析 | 产品需求文档 PRD | ✅ 已评审 |
 | 2 架构设计 | 技术方案/架构设计文档 | 🚧 初稿（待评审） |
-| 3 详细设计 | 数据库 + 接口设计文档 | 待开始 |
+| 3 详细设计 | 数据库 + 接口设计文档 | 🚧 数据库分析稿待审 |
 | 4 开发 | 后端代码（单体） | 待开始 |
 | 5 测试 | 接口测试 + 压测报告 | 待开始 |
 | 6 部署 | Docker 部署 | 待开始 |
