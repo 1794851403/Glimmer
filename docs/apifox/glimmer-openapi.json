@@ -374,7 +374,7 @@
           "认证"
         ],
         "summary": "登出",
-        "description": "删除 Redis 中 `glimmer:user:token:{userId}`，当前 Token 立即失效；客户端同时清除本地 Token。\n\n鉴权：登录。",
+        "description": "删除 Redis 中 `glimmer:user:token:{userId}`，当前 Token 立即失效；重新登录会重新签发 Access Token 并写入白名单，登出不封禁账号；客户端同时清除本地 Token。\n\n鉴权：登录。",
         "operationId": "logout",
         "security": [
           {
