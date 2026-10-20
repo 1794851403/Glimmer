@@ -13,5 +13,6 @@
 | 3 详细设计 | 数据库设计文档 | [03-数据库设计文档.md](03-数据库设计文档.md) | ✅ 已定稿 |
 | 3 详细设计 | 数据库表结构 ER 图 | [03-数据库表结构ER图.png](03-数据库表结构ER图.png) · [SVG](03-数据库表结构ER图.svg) | ✅ 已产出 |
 | 3 详细设计 | 接口设计文档 API | [04-接口设计文档.md](04-接口设计文档.md) | ✅ v1.6（已定稿） |
+| 3 详细设计 | OpenAPI 3.0 / Apifox 导入文件 | [apifox/glimmer-openapi.json](apifox/glimmer-openapi.json) · [导入说明](apifox/README.md) | ✅ 已生成（63 接口） |
 | 5 测试 | 接口测试（Apifox）+ 压测报告（JMeter） | 05-测试报告.md | 待编写 |
 | 7 演进 | 微服务演进方案 | 06-微服务演进方案.md | 待编写 |

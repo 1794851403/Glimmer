@@ -30,7 +30,8 @@ glimmer/
 │   ├── 03-数据库设计分析.md    (决策已确认)
 │   ├── 03-数据库设计文档.md    (已定稿)
 │   ├── 03-数据库表结构ER图.png / .svg
-│   └── 04-接口设计文档.md      (v1.6 已定稿)
+│   ├── 04-接口设计文档.md      (v1.6 已定稿)
+│   └── apifox/                 # OpenAPI 3.0 契约与 Apifox 导入说明
 ├── backend/         # 后端代码（单体）
 ├── frontend/        # 前端（可选）
 └── README.md
@@ -44,6 +45,7 @@ glimmer/
 - [架构设计文档](docs/02-架构设计文档.md)
 - [数据库设计文档](docs/03-数据库设计文档.md)（[ER 图](docs/03-数据库表结构ER图.png)）
 - [接口设计文档](docs/04-接口设计文档.md)
+- [OpenAPI 3.0 / Apifox 导入文件](docs/apifox/glimmer-openapi.json)（[导入说明](docs/apifox/README.md)）
 
 ## 开发路线
 
