@@ -1,6 +1,6 @@
 # Apifox 导入说明
 
-`glimmer-openapi.json` 是按 [04-接口设计文档.md](../04-接口设计文档.md) v1.6 生成的 OpenAPI 3.0 契约，覆盖接口总览中的 **63 个接口**（54 条路径，部分路径同时有 POST / DELETE）。
+`glimmer-openapi.json` 是按 [04-接口设计文档.md](../04-接口设计文档.md) v1.7 生成的 OpenAPI 3.0 契约，覆盖接口总览中的 **63 个接口**（54 条路径，部分路径同时有 POST / DELETE）。
 
 ## 导入步骤
 
@@ -18,7 +18,7 @@
 1. `POST /api/v1/auth/sms-code` → 从服务端日志或 `debugCode` 获取验证码（`local` / `dev` profile）。
 2. `POST /api/v1/auth/login` → 将 `accessToken` 写入环境变量。
 3. 上传图片 → 发帖 → 管理端审核 → Feed / 搜索 / 互动。
-4. 秒杀：管理端创建活动 → 发布 → 抢购 → `by-request` 轮询 → 模拟支付。
+4. 秒杀：管理端创建活动 → 发布 → 抢购 → `GET /seckill/activities/{activityId}/my-order` 轮询 → 模拟支付。
 
 ## 契约约定
 

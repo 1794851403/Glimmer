@@ -2,8 +2,8 @@
   "openapi": "3.0.3",
   "info": {
     "title": "微光 Glimmer API",
-    "version": "1.6.0",
-    "description": "微光 Glimmer 的 OpenAPI 3.0 契约，与 `docs/04-接口设计文档.md` v1.6（已定稿）一致，可直接导入 Apifox。\n\n**通用约定**\n- Base URL：本地 `http://localhost:8080`，生产示例 `https://api.glimmer.example`；业务接口统一 `/api/v1`，WebSocket 为 `/ws/danmaku`。\n- 鉴权：单 JWT（HS256，7 天）+ Redis 白名单，单用户单 Token；默认拒绝，仅白名单按「方法 + 路径」精确放行。全局 `bearerAuth`，白名单接口 `security: []`，可选登录接口同时声明 Token 与匿名。\n- `/api/v1/admin/**` 额外要求 `role=ADMIN`，OpenAPI 无法表达角色，已在各管理端接口 description 中注明。\n- ID 一律字符串（BIGINT 防 JS 精度丢失）；时间为 epoch 毫秒整数；金额为字符串十进制；布尔为 true/false。\n- 响应信封：`{ code, message, data, traceId }`；HTTP 状态与业务 code 同时表达语义。\n- 用户端列表用游标分页 `CursorPage<T>`；管理端列表用 PageHelper 页码分页 `PageResult<T>`。\n- AI 流式接口为 `text/event-stream`（SSE），禁止使用原生 EventSource 自动重连；弹幕为 WebSocket 帧协议，发送者不提前渲染、不做 ACK。\n\n**错误码**：40001~40004 参数 / 内容错误；40101 / 40102 未认证 / 过期；40301~40303 权限；40401~40403 不存在；40901/40903/40904 状态冲突；42901 限流；43001~43005 秒杀；44001~44004 AI；45001~45003 上传；50000 / 50301 服务端与依赖。",
+    "version": "1.7.0",
+    "description": "微光 Glimmer 的 OpenAPI 3.0 契约，与 `docs/04-接口设计文档.md` v1.7（已定稿）一致，可直接导入 Apifox。\n\n**通用约定**\n- Base URL：本地 `http://localhost:8080`，生产示例 `https://api.glimmer.example`；业务接口统一 `/api/v1`，WebSocket 为 `/ws/danmaku`。\n- 鉴权：单 JWT（HS256，7 天）+ Redis 白名单，单用户单 Token；默认拒绝，仅白名单按「方法 + 路径」精确放行。全局 `bearerAuth`，白名单接口 `security: []`，可选登录接口同时声明 Token 与匿名。\n- `/api/v1/admin/**` 额外要求 `role=ADMIN`，OpenAPI 无法表达角色，已在各管理端接口 description 中注明。\n- ID 一律字符串（BIGINT 防 JS 精度丢失）；时间为 epoch 毫秒整数；金额为字符串十进制；布尔为 true/false。\n- 响应信封：`{ code, message, data, traceId }`；HTTP 状态与业务 code 同时表达语义。\n- 用户端列表用游标分页 `CursorPage<T>`；管理端列表用 PageHelper 页码分页 `PageResult<T>`。\n- AI 流式接口为 `text/event-stream`（SSE），禁止使用原生 EventSource 自动重连；弹幕为 WebSocket 帧协议，发送者不提前渲染、不做 ACK。\n\n**错误码**：40001~40004 参数 / 内容错误；40101 / 40102 未认证 / 过期；40301~40303 权限；40401~40403 不存在；40901/40903/40904 状态冲突；42901 限流；43001~43005 秒杀；44001~44004 AI；45001~45003 上传；50000 / 50301 服务端与依赖。",
     "contact": {
       "name": "Glimmer 项目"
     },
@@ -5097,7 +5097,7 @@
           "秒杀"
         ],
         "summary": "发起抢购",
-        "description": "执行 Redis Lua：库存判断 + 一人一单资格判断 + 扣减 + 资格标记 → 发送 MQ 异步建单，立即返回 `202 QUEUED`。客户端按 `pollAfterMs` 轮询 §9.5，直到 `CREATED` / `FAILED`。相同 `requestId` 重复请求返回当前状态，不重复扣库存；`requestId` 与用户绑定，被其他用户使用时返回 `40301`。**严格一人一单**：同一用户对同一活动只能创建一个订单，订单超时关闭后仍占用资格，不能再次抢购。\n\n鉴权：登录。",
+        "description": "执行 Redis Lua：库存判断 + 一人一单资格判断 + 扣减 + 资格标记 → 发送 MQ 异步建单，立即返回 `202 QUEUED`。客户端按 `pollAfterMs` 轮询 `GET /seckill/activities/{activityId}/my-order`，直到 `CREATED` / `CLOSED`。同一用户对同一活动已有资格或订单时，重复 POST 返回 `200` + 当前状态，不重复扣库存；不依赖客户端请求 ID。**严格一人一单**：同一用户对同一活动只能创建一个订单，订单超时关闭后仍占用资格，不能再次抢购。下单失败时回滚资格，用户回到 `NOT_PARTICIPATED`。\n\n鉴权：登录。",
         "operationId": "createSeckillOrder",
         "security": [
           {
@@ -5115,20 +5115,49 @@
             }
           }
         ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/SeckillOrderRequest"
-              },
-              "example": {
-                "requestId": "req-8f3c9a2e-7d1b"
+        "responses": {
+          "200": {
+            "description": "重复抢购，返回当前状态，不重复扣库存",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiEnvelope"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "data": {
+                          "$ref": "#/components/schemas/SeckillMyOrderResult"
+                        }
+                      }
+                    }
+                  ]
+                },
+                "example": {
+                  "code": 0,
+                  "message": "ok",
+                  "data": {
+                    "activityId": "3001",
+                    "status": "CREATED",
+                    "order": {
+                      "orderNo": "SK202610191234560001",
+                      "activityId": "3001",
+                      "quantity": 1,
+                      "amount": "99.00",
+                      "status": 0,
+                      "statusText": "待支付",
+                      "createdAt": 1730000002000,
+                      "paidAt": null,
+                      "closedAt": null
+                    }
+                  },
+                  "traceId": "4f7c2a9e8b1d4c6f"
+                }
               }
             }
-          }
-        },
-        "responses": {
+          },
           "202": {
             "description": "已入队，异步创建订单",
             "content": {
@@ -5152,7 +5181,7 @@
                   "code": 0,
                   "message": "ok",
                   "data": {
-                    "requestId": "req-8f3c9a2e-7d1b",
+                    "activityId": "3001",
                     "status": "QUEUED",
                     "pollAfterMs": 500
                   },
@@ -5191,29 +5220,8 @@
               }
             }
           },
-          "403": {
-            "description": "40301 无权限访问该资源",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorEnvelope"
-                },
-                "examples": {
-                  "40301": {
-                    "summary": "40301 无权限访问该资源",
-                    "value": {
-                      "code": 40301,
-                      "message": "无权限访问该资源",
-                      "data": null,
-                      "traceId": "4f7c2a9e8b1d4c6f"
-                    }
-                  }
-                }
-              }
-            }
-          },
           "409": {
-            "description": "43001 秒杀尚未开始；43002 秒杀已结束；43003 已售罄；43004 超出每人限购 / 已下过单；43005 活动已下架",
+            "description": "43001 秒杀尚未开始；43002 秒杀已结束；43003 已售罄；43004 超出每人限购（预留给限购数 > 1）；43005 活动已下架",
             "content": {
               "application/json": {
                 "schema": {
@@ -5248,10 +5256,10 @@
                     }
                   },
                   "43004": {
-                    "summary": "43004 超出每人限购 / 已下过单",
+                    "summary": "43004 超出每人限购（预留给限购数 > 1）",
                     "value": {
                       "code": 43004,
-                      "message": "超出每人限购 / 已下过单",
+                      "message": "超出每人限购（预留给限购数 > 1）",
                       "data": null,
                       "traceId": "4f7c2a9e8b1d4c6f"
                     }
@@ -5335,14 +5343,14 @@
         }
       }
     },
-    "/api/v1/seckill/orders/by-request/{requestId}": {
+    "/api/v1/seckill/activities/{activityId}/my-order": {
       "get": {
         "tags": [
           "秒杀"
         ],
-        "summary": "查询抢购结果",
-        "description": "只能查询自己的 `requestId`。`QUEUED` 期间不返回订单号。轮询建议：500ms 起，指数退避至 2s，最多 15 秒；超时后提示“结果确认中”，可继续查询。\n\n鉴权：登录。",
-        "operationId": "getSeckillOrderByRequest",
+        "summary": "查询我的抢购结果",
+        "description": "按 `(userId, activityId)` 查询当前登录用户的抢购结果，不依赖客户端请求 ID。查询顺序：先查订单表，有订单返回 `CREATED` / `CLOSED`；无订单再查 Redis `bought`，有标记返回 `QUEUED`，否则 `NOT_PARTICIPATED`。`QUEUED` 期间不返回订单号。轮询建议：500ms 起，指数退避至 2s，最多 15 秒；超时后提示“结果确认中”，可继续查询。\n\n鉴权：登录。",
+        "operationId": "getMySeckillOrder",
         "security": [
           {
             "bearerAuth": []
@@ -5350,10 +5358,10 @@
         ],
         "parameters": [
           {
-            "name": "requestId",
+            "name": "activityId",
             "in": "path",
             "required": true,
-            "description": "抢购请求 ID",
+            "description": "活动 ID",
             "schema": {
               "type": "string"
             }
@@ -5373,7 +5381,7 @@
                       "type": "object",
                       "properties": {
                         "data": {
-                          "$ref": "#/components/schemas/SeckillRequestResult"
+                          "$ref": "#/components/schemas/SeckillMyOrderResult"
                         }
                       }
                     }
@@ -5383,9 +5391,8 @@
                   "code": 0,
                   "message": "ok",
                   "data": {
-                    "requestId": "req-8f3c9a2e-7d1b",
+                    "activityId": "3001",
                     "status": "CREATED",
-                    "failReason": null,
                     "order": {
                       "orderNo": "SK202610191234560001",
                       "activityId": "3001",
@@ -10616,8 +10623,9 @@
       "SeckillQueuedResult": {
         "type": "object",
         "properties": {
-          "requestId": {
-            "type": "string"
+          "activityId": {
+            "type": "string",
+            "description": "活动 ID"
           },
           "status": {
             "type": "string",
@@ -10633,39 +10641,32 @@
           }
         },
         "required": [
-          "requestId",
+          "activityId",
           "status",
           "pollAfterMs"
         ]
       },
-      "SeckillRequestResult": {
+      "SeckillMyOrderResult": {
         "type": "object",
         "properties": {
-          "requestId": {
-            "type": "string"
+          "activityId": {
+            "type": "string",
+            "description": "活动 ID"
           },
           "status": {
             "type": "string",
+            "description": "NOT_PARTICIPATED=未参与；QUEUED=处理中；CREATED=已创建；CLOSED=已关闭",
             "enum": [
+              "NOT_PARTICIPATED",
               "QUEUED",
               "CREATED",
-              "FAILED",
               "CLOSED"
             ]
-          },
-          "failReason": {
-            "type": "string",
-            "nullable": true,
-            "enum": [
-              "SOLD_OUT",
-              "LIMIT_EXCEEDED",
-              "SYSTEM_BUSY"
-            ],
-            "description": "FAILED 时的原因"
           },
           "order": {
             "type": "object",
             "nullable": true,
+            "description": "CREATED / CLOSED 时有值",
             "allOf": [
               {
                 "$ref": "#/components/schemas/SeckillOrderSummary"
@@ -10674,7 +10675,7 @@
           }
         },
         "required": [
-          "requestId",
+          "activityId",
           "status"
         ]
       },
@@ -11203,20 +11204,6 @@
           "limitNum",
           "startTime",
           "endTime"
-        ]
-      },
-      "SeckillOrderRequest": {
-        "type": "object",
-        "properties": {
-          "requestId": {
-            "type": "string",
-            "maxLength": 64,
-            "description": "客户端生成的 UUID，全局幂等键",
-            "example": "req-8f3c9a2e-7d1b"
-          }
-        },
-        "required": [
-          "requestId"
         ]
       },
       "PayRequest": {
