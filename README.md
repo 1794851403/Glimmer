@@ -13,8 +13,9 @@
 ## 技术栈（规划）
 
 - **后端**：Java 17 / Spring Boot 3 / MyBatis-Plus / MySQL 8 / Redis / Redisson / RabbitMQ / WebSocket
-- **搜索**：Elasticsearch 8 + IK 中文分词
+- **搜索**：Elasticsearch 8 + IK 中文分词；Kibana（开发辅助）
 - **AI**：LLM API（帖子自动打标签、评论情感分析、智能摘要）
+- **测试**：Apifox（接口功能 / 契约）+ Apache JMeter（压测）
 - **部署**：Docker / docker-compose
 - **演进**：Spring Cloud Alibaba（Nacos / Gateway / OpenFeign / Sentinel / Seata）+ SkyWalking
 
