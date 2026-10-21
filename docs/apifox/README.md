@@ -1,6 +1,6 @@
 # Apifox 导入说明
 
-`glimmer-openapi.json` 是按 [04-接口设计文档.md](../04-接口设计文档.md) v1.7 生成的 OpenAPI 3.0 契约，覆盖接口总览中的 **63 个接口**（54 条路径，部分路径同时有 POST / DELETE）。
+`glimmer-openapi.json` 是按 [04-接口设计文档.md](../04-接口设计文档.md) v1.8 生成的 OpenAPI 3.0 契约（`info.version = 1.8.0`），覆盖接口总览中的 **63 个接口**（54 条路径，部分路径同时有 POST / DELETE）。
 
 ## 导入步骤
 
@@ -9,7 +9,8 @@
    - 首次导入：**新建接口**；
    - 后续契约更新：**智能合并**，保留已编写的手工测试用例。
 3. 在 **环境管理** 中配置服务地址：
-   - 本地：`http://localhost:8080`
+   - 本地（后端在宿主机）：`http://localhost:8080`
+   - 后端在 CentOS 7 VM：`http://192.168.157.129:8080`
    - 生产示例：`https://api.glimmer.example`（占位域名）
 4. 认证：登录接口返回 `accessToken` 后，把它写入环境变量（如 `token`），在项目根目录的 Auth 中选择 **Bearer Token**，值填 `{{token}}`。
 

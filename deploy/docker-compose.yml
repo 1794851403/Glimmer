@@ -1,0 +1,209 @@
+# Glimmer 基础设施 Compose
+#
+# 目标机：CentOS 7 虚拟机 192.168.157.129
+# 开发期后端跑在 Windows 宿主机，通过 VM IP 访问下列端口。
+# 容器之间通过服务名互访；宿主机端口统一绑定 BIND_IP，避免暴露到 0.0.0.0。
+#
+# 启动：
+#   cp .env.example .env && vi .env
+#   docker compose up -d
+#
+# 说明：
+# - MySQL / RabbitMQ / Elasticsearch 使用 named volume，删除容器不丢数据；
+# - redis-core 使用 AOF，redis-cache 不持久化；
+# - Kibana 只在 tools profile 下启动；
+# - backend / nginx 在骨架阶段再加入，避免当前没有 jar 时 compose 构建失败。
+
+name: glimmer
+
+services:
+  mysql:
+    image: mysql:8.0.39
+    container_name: glimmer-mysql
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_0900_ai_ci
+      - --default-time-zone=+08:00
+      - --max-connections=300
+      - --innodb-buffer-pool-size=512M
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-glimmer}
+      MYSQL_USER: ${MYSQL_USER:-glimmer}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+      TZ: Asia/Shanghai
+    ports:
+      - "${BIND_IP:-192.168.157.129}:3306:3306"
+    volumes:
+      - mysql-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -uroot -p$${MYSQL_ROOT_PASSWORD} --silent"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+      start_period: 30s
+    restart: unless-stopped
+    mem_limit: 1536m
+    networks:
+      - glimmer-net
+
+  redis-core:
+    image: redis:7.2-alpine
+    container_name: glimmer-redis-core
+    command:
+      - redis-server
+      - --port
+      - "6379"
+      - --requirepass
+      - ${REDIS_CORE_PASSWORD}
+      - --appendonly
+      - "yes"
+      - --appendfsync
+      - everysec
+      - --save
+      - ""
+      - --maxmemory
+      - ${REDIS_CORE_MAXMEMORY:-512mb}
+      - --maxmemory-policy
+      - noeviction
+      - --auto-aof-rewrite-percentage
+      - "100"
+      - --auto-aof-rewrite-min-size
+      - 64mb
+    environment:
+      REDISCLI_AUTH: ${REDIS_CORE_PASSWORD}
+    ports:
+      - "${BIND_IP:-192.168.157.129}:6379:6379"
+    volumes:
+      - redis-core-data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli ping | grep -q PONG"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+    mem_limit: 768m
+    networks:
+      - glimmer-net
+
+  redis-cache:
+    image: redis:7.2-alpine
+    container_name: glimmer-redis-cache
+    command:
+      - redis-server
+      - --port
+      - "6379"
+      - --requirepass
+      - ${REDIS_CACHE_PASSWORD}
+      - --appendonly
+      - "no"
+      - --save
+      - ""
+      - --maxmemory
+      - ${REDIS_CACHE_MAXMEMORY:-1536mb}
+      - --maxmemory-policy
+      - allkeys-lru
+      - --maxmemory-samples
+      - "10"
+      - --lazyfree-lazy-eviction
+      - "yes"
+    environment:
+      REDISCLI_AUTH: ${REDIS_CACHE_PASSWORD}
+    ports:
+      - "${BIND_IP:-192.168.157.129}:6380:6379"
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli ping | grep -q PONG"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+    mem_limit: 1792m
+    networks:
+      - glimmer-net
+
+  rabbitmq:
+    build:
+      context: ./rabbitmq
+      args:
+        RABBITMQ_VERSION: ${RABBITMQ_VERSION:-3.13.7}
+        DELAYED_PLUGIN_VERSION: ${DELAYED_PLUGIN_VERSION:-3.13.0}
+    container_name: glimmer-rabbitmq
+    hostname: glimmer-rabbitmq
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_DEFAULT_USER:-glimmer}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_DEFAULT_PASS}
+      TZ: Asia/Shanghai
+    ports:
+      - "${BIND_IP:-192.168.157.129}:5672:5672"
+      - "${BIND_IP:-192.168.157.129}:15672:15672"
+    volumes:
+      - rabbitmq-data:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+      start_period: 30s
+    restart: unless-stopped
+    mem_limit: 512m
+    networks:
+      - glimmer-net
+
+  elasticsearch:
+    build:
+      context: ./elasticsearch
+      args:
+        ES_VERSION: ${ES_VERSION:-8.15.0}
+        IK_VERSION: ${IK_VERSION:-8.15.0}
+    container_name: glimmer-elasticsearch
+    environment:
+      discovery.type: single-node
+      ES_JAVA_OPTS: ${ES_JAVA_OPTS:--Xms512m -Xmx512m}
+      xpack.security.enabled: "false"
+      TZ: Asia/Shanghai
+    ports:
+      - "${BIND_IP:-192.168.157.129}:9200:9200"
+    volumes:
+      - es-data:/usr/share/elasticsearch/data
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:9200/_cluster/health >/dev/null || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 60s
+    restart: unless-stopped
+    mem_limit: 1536m
+    networks:
+      - glimmer-net
+
+  kibana:
+    image: docker.elastic.co/kibana/kibana:${ES_VERSION:-8.15.0}
+    container_name: glimmer-kibana
+    profiles: ["tools"]
+    environment:
+      ELASTICSEARCH_HOSTS: http://elasticsearch:9200
+      XPACK_SECURITY_ENABLED: "false"
+      TZ: Asia/Shanghai
+    ports:
+      - "${BIND_IP:-192.168.157.129}:5601:5601"
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+    restart: unless-stopped
+    mem_limit: 512m
+    networks:
+      - glimmer-net
+
+volumes:
+  mysql-data:
+  redis-core-data:
+  rabbitmq-data:
+  es-data:
+
+networks:
+  glimmer-net:
+    driver: bridge
