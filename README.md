@@ -31,6 +31,7 @@ glimmer/
 │   ├── 03-数据库设计文档.md    (已定稿)
 │   ├── 03-数据库表结构ER图.png / .svg
 │   ├── 04-接口设计文档.md      (v1.8 已定稿)
+│   ├── 06-部署文档.md          (VM 组件 / 版本 / 卷 / 网桥)
 │   └── apifox/                 # OpenAPI 3.0 契约与 Apifox 导入说明
 ├── backend/         # 后端代码（单体）
 ├── frontend/        # 前端（可选）
@@ -46,6 +47,7 @@ glimmer/
 - [架构设计文档](docs/02-架构设计文档.md)
 - [数据库设计文档](docs/03-数据库设计文档.md)（[ER 图](docs/03-数据库表结构ER图.png)）
 - [接口设计文档](docs/04-接口设计文档.md)
+- [虚拟机 Docker 部署文档](docs/06-部署文档.md)
 - [OpenAPI 3.0 / Apifox 导入文件](docs/apifox/glimmer-openapi.json)（[导入说明](docs/apifox/README.md)）
 
 ## 开发路线
@@ -57,7 +59,7 @@ glimmer/
 | 3 详细设计 | 数据库 + 接口设计文档 | ✅ 已定稿（数据库 v1.4、接口 v1.8） |
 | 4 开发 | 后端代码（单体） | 待开始 |
 | 5 测试 | 接口测试 + 压测报告 | 待开始 |
-| 6 部署 | Docker 部署（CentOS 7 `192.168.157.129`） | 🚧 `deploy/` 已就绪，待 VM 开机执行 |
+| 6 部署 | Docker 部署（CentOS 7 `192.168.157.129`） | 🚧 部署文档 + `deploy/` 已就绪，待 VM 开机执行 |
 | 7 演进 | 微服务化 | 待开始 |
 
 ## 运行

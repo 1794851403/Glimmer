@@ -18,5 +18,6 @@
 | 3 详细设计 | 接口设计文档 API | [04-接口设计文档.md](04-接口设计文档.md) | ✅ v1.8（已定稿） |
 | 3 详细设计 | OpenAPI 3.0 / Apifox 导入文件 | [apifox/glimmer-openapi.json](apifox/glimmer-openapi.json) · [导入说明](apifox/README.md) | ✅ 1.8.0（63 接口） |
 | 5 测试 | 接口测试（Apifox）+ 压测报告（JMeter） | 05-测试报告.md | 待编写 |
-| 6 部署 | 基础设施（MySQL / Redis core+cache / RabbitMQ / ES） | [deploy/README.md](../deploy/README.md) | 🚧 待 VM 开机执行 |
-| 7 演进 | 微服务演进方案 | 06-微服务演进方案.md | 待编写 |
+| 6 部署 | 虚拟机 Docker 部署手册（组件 / 版本 / 卷 / 网桥） | [06-部署文档.md](06-部署文档.md) | ✅ v1.0（待 VM 验证） |
+| 6 部署 | 基础设施 Compose / VM 安装与排错 | [deploy/README.md](../deploy/README.md) | 🚧 待 VM 开机执行 |
+| 7 演进 | 微服务演进方案 | 07-微服务演进方案.md | 待编写 |

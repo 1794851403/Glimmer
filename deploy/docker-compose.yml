@@ -16,6 +16,12 @@
 
 name: glimmer
 
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "50m"
+    max-file: "3"
+
 services:
   mysql:
     image: mysql:8.0.39
@@ -46,6 +52,7 @@ services:
     mem_limit: 1536m
     networks:
       - glimmer-net
+    logging: *default-logging
 
   redis-core:
     image: redis:7.2-alpine
@@ -85,6 +92,7 @@ services:
     mem_limit: 768m
     networks:
       - glimmer-net
+    logging: *default-logging
 
   redis-cache:
     image: redis:7.2-alpine
@@ -120,6 +128,7 @@ services:
     mem_limit: 1792m
     networks:
       - glimmer-net
+    logging: *default-logging
 
   rabbitmq:
     build:
@@ -148,6 +157,7 @@ services:
     mem_limit: 512m
     networks:
       - glimmer-net
+    logging: *default-logging
 
   elasticsearch:
     build:
@@ -179,6 +189,7 @@ services:
     mem_limit: 1536m
     networks:
       - glimmer-net
+    logging: *default-logging
 
   kibana:
     image: docker.elastic.co/kibana/kibana:${ES_VERSION:-8.15.0}
@@ -197,6 +208,7 @@ services:
     mem_limit: 512m
     networks:
       - glimmer-net
+    logging: *default-logging
 
 volumes:
   mysql-data:
@@ -206,4 +218,9 @@ volumes:
 
 networks:
   glimmer-net:
+    name: glimmer-net
     driver: bridge
+    ipam:
+      config:
+        - subnet: 172.28.0.0/16
+          gateway: 172.28.0.1
