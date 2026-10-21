@@ -1,0 +1,101 @@
+server:
+  port: 8080
+  shutdown: graceful
+
+spring:
+  application:
+    name: glimmer
+  profiles:
+    default: dev
+  lifecycle:
+    timeout-per-shutdown-phase: 20s
+  # 本地密钥统一放在 deploy/.env（已 gitignore）。也可用 GLIMMER_ENV_FILE 指定其他文件。
+  config:
+    import:
+      - optional:file:../deploy/.env[.properties]
+      - optional:file:deploy/.env[.properties]
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    hikari:
+      maximum-pool-size: 20
+      minimum-idle: 5
+      connection-timeout: 3000
+      validation-timeout: 1000
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+  jackson:
+    time-zone: Asia/Shanghai
+  rabbitmq:
+    host: ${RABBITMQ_HOST:192.168.157.129}
+    port: ${RABBITMQ_PORT:5672}
+    username: ${RABBITMQ_DEFAULT_USER:glimmer}
+    password: ${RABBITMQ_DEFAULT_PASS:}
+    virtual-host: /
+    publisher-confirm-type: correlated
+    publisher-returns: true
+    template:
+      mandatory: true
+
+mybatis-plus:
+  configuration:
+    map-underscore-to-camel-case: true
+  global-config:
+    banner: false
+    db-config:
+      id-type: auto
+
+pagehelper:
+  helper-dialect: mysql
+  reasonable: false
+  page-size-zero: false
+  support-methods-arguments: false
+
+glimmer:
+  jwt:
+    secret: ${JWT_SECRET:}
+    expire: 7d
+  redis:
+    core:
+      host: ${REDIS_CORE_HOST:192.168.157.129}
+      port: ${REDIS_CORE_PORT:6379}
+      password: ${REDIS_CORE_PASSWORD:}
+      database: 0
+      timeout-ms: 3000
+    cache:
+      host: ${REDIS_CACHE_HOST:192.168.157.129}
+      port: ${REDIS_CACHE_PORT:6380}
+      password: ${REDIS_CACHE_PASSWORD:}
+      database: 0
+      timeout-ms: 3000
+  cors:
+    allowed-origins:
+      - http://localhost:5173
+      - http://127.0.0.1:5173
+  rate-limit:
+    actions:
+      sms-code:
+        limit: 5
+        window: 1h
+      login:
+        limit: 10
+        window: 1h
+      seckill:
+        limit: 10
+        window: 1h
+      ai:
+        limit: 20
+        window: 1h
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+  endpoint:
+    health:
+      show-details: when_authorized
+
+logging:
+  level:
+    com.glimmer: info

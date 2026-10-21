@@ -163,42 +163,41 @@ Test-NetConnection 192.168.157.129 -Port 9200
 
 ## 8. 后端开发配置
 
-`application-dev.yml` 用 VM IP，不要用 `127.0.0.1`：
+后端**不复制一份密码配置**：`backend/src/main/resources/application.yml` 通过
+`spring.config.import` 直接读取本目录的 `.env`（`../deploy/.env` 或 `deploy/.env`），
+环境变量优先级更高。因此只需要维护 `.env` 一份密码。
 
 ```yaml
+# application.yml（已提交）中的默认值，均可用环境变量覆盖
 spring:
   datasource:
-    url: jdbc:mysql://192.168.157.129:3306/glimmer?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true
-    username: glimmer
-    password: ${MYSQL_PASSWORD}
-  data:
-    redis:
-      # 不使用 Spring Boot 默认单 Redis 配置；见 RedisConfig 双连接工厂
+    url: jdbc:mysql://${MYSQL_HOST:192.168.157.129}:${MYSQL_PORT:3306}/${MYSQL_DATABASE:glimmer}?...
+    username: ${MYSQL_USER:glimmer}
+    password: ${MYSQL_PASSWORD:}
+  rabbitmq:
+    host: ${RABBITMQ_HOST:192.168.157.129}
+    port: ${RABBITMQ_PORT:5672}
 
 glimmer:
+  jwt:
+    secret: ${JWT_SECRET:}
   redis:
     core:
-      host: 192.168.157.129
-      port: 6379
-      password: ${REDIS_CORE_PASSWORD}
+      host: ${REDIS_CORE_HOST:192.168.157.129}
+      port: ${REDIS_CORE_PORT:6379}
+      password: ${REDIS_CORE_PASSWORD:}
     cache:
-      host: 192.168.157.129
-      port: 6380
-      password: ${REDIS_CACHE_PASSWORD}
-  rabbitmq:
-    host: 192.168.157.129
-    port: 5672
-  elasticsearch:
-    uris: http://192.168.157.129:9200
-  storage:
-    public-base-url: http://192.168.157.129:8080
-  cors:
-    allowed-origins:
-      - http://localhost:5173
-      - http://127.0.0.1:5173
+      host: ${REDIS_CACHE_HOST:192.168.157.129}
+      port: ${REDIS_CACHE_PORT:6380}
+      password: ${REDIS_CACHE_PASSWORD:}
 ```
 
-如果后端也容器化，则 host 改为 `mysql` / `redis-core` / `redis-cache` / `rabbitmq` / `elasticsearch`，端口改回容器端口（Redis 都是 6379）。
+启动前确认 `.env` 中的 `JWT_SECRET` 至少 32 字节。在 IDE 中运行
+`com.glimmer.GlimmerApplication`，工作目录设为 `backend/`；从仓库根目录执行
+`mvn -f backend/pom.xml spring-boot:run` 也能读取 `deploy/.env`。
+
+如果后端也容器化，则 host 改为 `mysql` / `redis-core` / `redis-cache` / `rabbitmq` / `elasticsearch`，
+端口改回容器端口（Redis 都是 6379）。
 
 ## 9. 数据持久化与备份
 
