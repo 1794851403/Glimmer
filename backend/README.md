@@ -19,8 +19,13 @@ src/main/java/com/glimmer/
     ├── dto/
     ├── entity/
     ├── mapper/
-    └── service/        # 登录 / 自动注册 / active ZSet
+    └── service/        # AuthService 接口
+        └── impl/       # AuthServiceImpl：登录 / 自动注册
 ```
+
+- **Service 约定**：业务 Service 统一「接口 + `impl` 实现」，接口放 `service/`，实现放
+  `service/impl/`；接口名不带 `I` 前缀。技术组件（`JwtService`、`TokenStore`、`RateLimiter`）
+  不是模块业务 API，保持具体类，避免单实现的伪抽象。
 
 - **双 Redis**：`core`（noeviction + AOF，Token / 锁 / 秒杀 / 布隆）与 `cache`（allkeys-lru，详情 / Feed / 限流）。
   Spring Boot 默认 `RedisAutoConfiguration` 已排除，连接在 `RedisConfig` 显式创建。
