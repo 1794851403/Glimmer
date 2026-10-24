@@ -7,8 +7,8 @@ public enum RateLimitAction {
 
     SMS_CODE("sms-code", "glimmer:auth:limit:sms:"),
     LOGIN("login", "glimmer:auth:limit:login:"),
-    SECKILL("seckill", "glimmer:seckill:limit:"),
-    AI("ai", "glimmer:ai:limit:");
+    SECKILL("seckill", "glimmer:seckill:limit:user:"),
+    AI("ai", "glimmer:ai:limit:user:");
 
     private final String key;
     private final String keyPrefix;
