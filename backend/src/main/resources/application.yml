@@ -68,10 +68,8 @@ glimmer:
       password: ${REDIS_CACHE_PASSWORD:}
       database: 0
       timeout-ms: 3000
-  cors:
-    allowed-origins:
-      - http://localhost:5173
-      - http://127.0.0.1:5173
+  # CORS 仅用于本地直连调试；生产走 Nginx 同源反代，不依赖 CORS。
+  # 开发白名单见 application-dev.yml。
   rate-limit:
     actions:
       sms-code:
