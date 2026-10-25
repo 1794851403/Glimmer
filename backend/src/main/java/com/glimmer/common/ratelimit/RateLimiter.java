@@ -16,7 +16,8 @@ import java.util.UUID;
 /**
  * 滑动窗口限流：ZSet + Lua，成员由应用生成 UUID，避免同一毫秒并发碰撞。
  *
- * <p>限流 Key 放在 cache 实例；该实例不可用时按依赖故障处理，不放行。
+ * <p>脚本只返回 0（放行）/ 1（拒绝）；拒绝时 Retry-After 取整个窗口长度，是保守上限。
+ * 限流 Key 放在 cache 实例；该实例不可用时按依赖故障处理，不放行。
  */
 @Slf4j
 @Component
@@ -27,17 +28,13 @@ public class RateLimiter {
             local now = tonumber(ARGV[1])
             local window = tonumber(ARGV[2])
             local limit = tonumber(ARGV[3])
-            local member = ARGV[4]
             redis.call('ZREMRANGEBYSCORE', key, 0, now - window)
-            local count = redis.call('ZCARD', key)
-            if count >= limit then
-              local ttl = redis.call('TTL', key)
-              if ttl < 0 then ttl = math.ceil(window / 1000) + 1 end
-              return ttl
+            if redis.call('ZCARD', key) >= limit then
+              return 1
             end
-            redis.call('ZADD', key, now, member)
-            redis.call('EXPIRE', key, math.ceil(window / 1000) + 1)
-            return -1
+            redis.call('ZADD', key, now, ARGV[4])
+            redis.call('PEXPIRE', key, window + 1000)
+            return 0
             """, Long.class);
 
     private final StringRedisTemplate cacheRedisTemplate;
@@ -68,8 +65,8 @@ public class RateLimiter {
             log.error("rate limiter redis unavailable, action={}", action, e);
             throw new BizException(ErrorCode.DEPENDENCY_UNAVAILABLE, "限流服务暂不可用");
         }
-        if (result != null && result >= 0) {
-            throw new RateLimitException(result, rule.limit());
+        if (result != null && result == 1L) {
+            throw new RateLimitException(rule.window().toSeconds(), rule.limit());
         }
     }
 
