@@ -21,5 +21,5 @@
 | 4 开发 | 后端骨架详解（逐层讲解长图） | [骨架详解.png](骨架详解.png) | ✅ 已产出 |
 | 5 测试 | 接口测试（Apifox）+ 压测报告（JMeter） | 05-测试报告.md | 待编写 |
 | 6 部署 | 虚拟机 Docker 部署手册（组件 / 版本 / 卷 / 网桥） | [06-部署文档.md](06-部署文档.md) | ✅ v1.0（核心组件已在 VM 验证） |
-| 6 部署 | 基础设施 Compose / VM 安装与排错 | [deploy/README.md](../deploy/README.md) | ✅ MySQL + Redis core/cache 已启动；RabbitMQ / ES 待后续 |
+| 6 部署 | 基础设施 Compose / VM 安装与排错 | [deploy/README.md](../deploy/README.md) | ✅ MySQL + Redis core/cache + RabbitMQ（延迟插件）已启动；ES / Kibana 待搜索模块 |
 | 7 演进 | 微服务演进方案 | 07-微服务演进方案.md | 待编写 |

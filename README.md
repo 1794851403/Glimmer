@@ -59,7 +59,7 @@ glimmer/
 | 3 详细设计 | 数据库 + 接口设计文档 | ✅ 已定稿（数据库 v1.4、接口 v1.8） |
 | 4 开发 | 后端代码（单体） | 🚧 骨架 + 登录链路已端到端跑通；进入 user 模块 |
 | 5 测试 | 接口测试 + 压测报告 | 待开始 |
-| 6 部署 | Docker 部署（CentOS 7 `192.168.157.129`） | 🚧 MySQL + Redis core/cache 已启动；RabbitMQ / ES 待后续 |
+| 6 部署 | Docker 部署（CentOS 7 `192.168.157.129`） | 🚧 MySQL + Redis core/cache + RabbitMQ（延迟插件）已启动；ES / Kibana 待搜索模块 |
 | 7 演进 | 微服务化 | 待开始 |
 
 ## 运行
