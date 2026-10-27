@@ -80,6 +80,7 @@ Redis / ES / RabbitMQ 在同一台 VM 上，需要先调内核参数：
 sudo tee /etc/sysctl.d/99-glimmer.conf >/dev/null <<'EOF'
 vm.max_map_count=262144
 vm.overcommit_memory=1
+net.ipv4.ip_forward=1
 net.core.somaxconn=1024
 fs.file-max=100000
 EOF
@@ -225,6 +226,7 @@ docker compose exec -T redis-core redis-cli BGREWRITEAOF
 | ES 启动报 `max virtual memory areas vm.max_map_count [65530] is too low` | 执行第 4 节 sysctl |
 | Redis 容器不断重启 | `.env` 中密码为空或含 `$`；改用简单强密码并检查 `docker compose logs` |
 | MySQL 连不上 | 端口未放行 / 用户 host 不是 `%` / `BIND_IP` 不是 VM 当前 IP |
+| SSH 能通，但 3306/6379/6380 从宿主机超时 | `sysctl net.ipv4.ip_forward` 为 0；设为 1 并持久化到 `/etc/sysctl.d/` |
 | RabbitMQ 延迟插件缺失 | 构建日志看 `ADD` 是否成功；离线时手动放 `.ez` 后改 `COPY` |
 | IK 插件 404 | `IK_VERSION` 与 `ES_VERSION` 必须完全一致；确认 GitHub release 可用 |
 | 磁盘满 | `docker system df` / `df -h`；ES 与镜像最占空间 |
