@@ -1,6 +1,6 @@
 # Apifox 导入说明
 
-`glimmer-openapi.json` 是按 [04-接口设计文档.md](../04-接口设计文档.md) v1.8 生成的 OpenAPI 3.0 契约（`info.version = 1.8.0`），覆盖接口总览中的 **63 个接口**（54 条路径，部分路径同时有 POST / DELETE）。
+`glimmer-openapi.json` 是按 [04-接口设计文档.md](../04-接口设计文档.md) v1.8 生成的 OpenAPI 3.0 契约（`info.version = 1.8.0`），覆盖接口总览中的 **63 个接口**（54 条路径，部分路径同时有 POST / DELETE）。04 v1.9 仅补充本人资料接口的预填、局部更新与错误码口径，接口契约未变，暂不重新生成。
 
 ## 导入步骤
 

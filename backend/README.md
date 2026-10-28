@@ -15,12 +15,12 @@ src/main/java/com/glimmer/
 │   ├── ratelimit/      # Redis Lua 滑动窗口
 │   └── web/            # TraceId、UserContext
 └── user/
-    ├── controller/     # POST /api/v1/auth/sms-code|login|logout
+    ├── controller/     # auth/sms-code|login|logout；users/me GET / PATCH
     ├── dto/
     ├── entity/
     ├── mapper/
-    └── service/        # AuthService 接口
-        └── impl/       # AuthServiceImpl：登录 / 自动注册
+    └── service/        # AuthService、UserService 接口
+        └── impl/       # AuthServiceImpl：登录 / 自动注册；UserServiceImpl：本人资料
 ```
 
 - **Service 约定**：业务 Service 统一「接口 + `impl` 实现」，接口放 `service/`，实现放
@@ -36,7 +36,7 @@ src/main/java/com/glimmer/
 - **鉴权**：默认拒绝 `/api/**`；白名单按「方法 + 路径」精确匹配；JWT 之外还要校验 core 中的
   `glimmer:user:token:{userId}`，支持登出 / 封禁主动失效。
 - **数据库**：Flyway `V1__init_schema.sql`（11 张表）、`V2__seed_tags.sql`。
-- **限流**：验证码 5 次/小时、登录 10 次/小时，阈值在 `application.yml`。
+- **限流**：验证码默认 5 次/小时（当前联调期配置为 100，见 `application.yml`）、登录 10 次/小时。
 
 ## 运行
 
@@ -68,13 +68,27 @@ curl -s -X POST http://localhost:8080/api/v1/auth/logout \
   -H "Authorization: Bearer <accessToken>"
 ```
 
+## 验证本人资料
+
+```bash
+# 编辑页预填：获取当前资料
+curl -s http://localhost:8080/api/v1/users/me \
+  -H "Authorization: Bearer <accessToken>"
+
+# 局部更新；未传字段不变，bio 传 "" 表示清空
+curl -s -X PATCH http://localhost:8080/api/v1/users/me \
+  -H "Authorization: Bearer <accessToken>" \
+  -H 'Content-Type: application/json' \
+  -d '{"nickname":"小光","bio":"记录生活里的微光"}'
+```
+
 ## 测试
 
 ```bash
 mvn test
 ```
 
-当前只有 JWT 单元测试；接 Testcontainers 后补 MySQL / Redis / RabbitMQ 集成测试与 ArchUnit 模块边界测试。
+当前有 JWT 与 `UserServiceImpl` 单元测试；接 Testcontainers 后补 MySQL / Redis / RabbitMQ 集成测试与 ArchUnit 模块边界测试。
 
 ## 待办
 

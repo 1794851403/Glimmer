@@ -6,9 +6,11 @@ import java.time.LocalDateTime;
 import java.time.ZoneId;
 
 /**
- * 登录响应中的用户信息。ID 按接口约定序列化为字符串；时间用 epoch 毫秒。
+ * 本人资料：GET /users/me、PATCH /users/me 的响应，登录响应也复用该结构。
+ *
+ * <p>ID 按接口约定序列化为字符串；时间用 epoch 毫秒；手机号脱敏。
  */
-public record UserProfile(
+public record SelfProfile(
         /** 用户 ID，以字符串序列化，避免前端 Long 精度丢失。 */
         String id,
 
@@ -42,8 +44,8 @@ public record UserProfile(
 
     private static final ZoneId ZONE = ZoneId.of("Asia/Shanghai");
 
-    public static UserProfile from(UserDO user) {
-        return new UserProfile(
+    public static SelfProfile from(UserDO user) {
+        return new SelfProfile(
                 String.valueOf(user.getId()),
                 maskPhone(user.getPhone()),
                 user.getNickname(),
