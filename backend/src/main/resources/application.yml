@@ -60,12 +60,8 @@ glimmer:
   jwt:
     secret: ${JWT_SECRET:}
     expire: 7d
-  # 图片存储：local 写本地目录并映射 /uploads/**；oss 走后端中转上传
+  # 图片存储：开发与发布都使用 OSS，走后端中转上传
   storage:
-    type: ${STORAGE_TYPE:local}
-    local:
-      root-dir: ${STORAGE_LOCAL_ROOT:./uploads}
-      public-base-url: ${STORAGE_LOCAL_BASE_URL:http://localhost:8080}
     oss:
       endpoint: ${OSS_ENDPOINT:}
       bucket: ${OSS_BUCKET:}

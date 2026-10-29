@@ -1,7 +1,7 @@
 package com.glimmer.user.service;
 
-import com.glimmer.user.dto.SelfProfile;
-import com.glimmer.user.dto.UpdateProfileRequest;
+import com.glimmer.user.dto.UpdateProfileDTO;
+import com.glimmer.user.vo.SelfProfileVO;
 
 /**
  * 用户资料模块对外的服务：查看与修改本人资料。
@@ -18,7 +18,7 @@ public interface UserService {
      *
      * @return 当前用户的本人资料
      */
-    SelfProfile getMyProfile();
+    SelfProfileVO getMyProfile();
 
     /**
      * 修改当前登录用户的资料。
@@ -29,5 +29,5 @@ public interface UserService {
      * @param request 待修改字段，至少一个
      * @return 修改后的完整本人资料
      */
-    SelfProfile updateMyProfile(UpdateProfileRequest request);
+    SelfProfileVO updateMyProfile(UpdateProfileDTO request);
 }

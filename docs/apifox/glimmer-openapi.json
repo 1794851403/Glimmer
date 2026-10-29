@@ -2,8 +2,8 @@
   "openapi": "3.0.3",
   "info": {
     "title": "微光 Glimmer API",
-    "version": "1.8.1",
-    "description": "微光 Glimmer 的 OpenAPI 3.0 契约，与 `docs/04-接口设计文档.md` v1.10（已定稿）一致，可直接导入 Apifox。\n\n**通用约定**\n- Base URL：本地 `http://localhost:8080`；后端在 VM 时 `http://192.168.157.129:8080`；生产示例 `https://api.glimmer.example`；业务接口统一 `/api/v1`，WebSocket 为 `/ws/danmaku`。\n- 鉴权：单 JWT（HS256，7 天）+ Redis 白名单，单用户单 Token；默认拒绝，仅白名单按「方法 + 路径」精确放行。全局 `bearerAuth`，白名单接口 `security: []`，可选登录接口同时声明 Token 与匿名。\n- `/api/v1/admin/**` 额外要求 `role=ADMIN`，OpenAPI 无法表达角色，已在各管理端接口 description 中注明。\n- ID 一律字符串（BIGINT 防 JS 精度丢失）；时间为 epoch 毫秒整数；金额为字符串十进制；布尔为 true/false。\n- 响应信封：`{ code, message, data, traceId }`；HTTP 状态与业务 code 同时表达语义。\n- 用户端列表用游标分页 `CursorPage<T>`；管理端列表用 PageHelper 页码分页 `PageResult<T>`。\n- AI 流式接口为 `text/event-stream`（SSE），禁止使用原生 EventSource 自动重连；弹幕为 WebSocket 帧协议，发送者不提前渲染、不做 ACK。\n\n**错误码**：40001~40004 参数 / 内容错误；40101 / 40102 未认证 / 过期；40301~40303 权限；40401~40403 不存在；40901/40903/40904 状态冲突；42901 限流；43001~43005 秒杀；44001~44004 AI；45001~45003 上传；50000 / 50301 服务端与依赖。",
+    "version": "1.8.2",
+    "description": "微光 Glimmer 的 OpenAPI 3.0 契约，与 `docs/04-接口设计文档.md` v1.11（已定稿）一致，可直接导入 Apifox。\n\n**通用约定**\n- Base URL：本地 `http://localhost:8080`；后端在 VM 时 `http://192.168.157.129:8080`；生产示例 `https://api.glimmer.example`；业务接口统一 `/api/v1`，WebSocket 为 `/ws/danmaku`。\n- 鉴权：单 JWT（HS256，7 天）+ Redis 白名单，单用户单 Token；默认拒绝，仅白名单按「方法 + 路径」精确放行。全局 `bearerAuth`，白名单接口 `security: []`，可选登录接口同时声明 Token 与匿名。\n- `/api/v1/admin/**` 额外要求 `role=ADMIN`，OpenAPI 无法表达角色，已在各管理端接口 description 中注明。\n- ID 一律字符串（BIGINT 防 JS 精度丢失）；时间为 epoch 毫秒整数；金额为字符串十进制；布尔为 true/false。\n- 响应信封：`{ code, message, data, traceId }`；HTTP 状态与业务 code 同时表达语义。\n- 用户端列表用游标分页 `CursorPage<T>`；管理端列表用 PageHelper 页码分页 `PageResult<T>`。\n- AI 流式接口为 `text/event-stream`（SSE），禁止使用原生 EventSource 自动重连；弹幕为 WebSocket 帧协议，发送者不提前渲染、不做 ACK。\n\n**错误码**：40001~40004 参数 / 内容错误；40101 / 40102 未认证 / 过期；40301~40303 权限；40401~40403 不存在；40901/40903/40904 状态冲突；42901 限流；43001~43005 秒杀；44001~44004 AI；45001~45003 上传；50000 / 50301 服务端与依赖。",
     "contact": {
       "name": "Glimmer 项目"
     },
@@ -451,7 +451,7 @@
                       "type": "object",
                       "properties": {
                         "data": {
-                          "$ref": "#/components/schemas/SelfProfile"
+                          "$ref": "#/components/schemas/SelfProfileVO"
                         }
                       }
                     }
@@ -527,7 +527,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/UpdateProfileRequest"
+                "$ref": "#/components/schemas/UpdateProfileDTO"
               },
               "example": {
                 "nickname": "小光",
@@ -550,7 +550,7 @@
                       "type": "object",
                       "properties": {
                         "data": {
-                          "$ref": "#/components/schemas/SelfProfile"
+                          "$ref": "#/components/schemas/SelfProfileVO"
                         }
                       }
                     }
@@ -1747,7 +1747,7 @@
           "上传"
         ],
         "summary": "上传图片",
-        "description": "后端中转上传：前端 multipart 提交，后端生成对象名后写入 Local / OSS。MVP 只校验扩展名（jpg/jpeg/png/webp）与大小（≤5MB），不校验 MIME / magic bytes，不做图片内容审核。OSS 桶保持私有，仅本次上传对象设为 public-read；需关闭 Bucket 的「阻止公共访问」。本地 profile 写入 `./uploads/`，通过 `/uploads/**` 静态访问。\n\n鉴权：登录。",
+        "description": "后端中转上传：前端 multipart 提交，后端生成对象名后写入 OSS。MVP 只校验扩展名（jpg/jpeg/png/webp）与大小（≤5MB），不校验 MIME / magic bytes，不做图片内容审核。开发与发布都只使用 OSS，共用一个桶，不提供本地存储实现。OSS 桶保持私有，仅本次上传对象设为 public-read；需关闭 Bucket 的「阻止公共访问」。\n\n鉴权：登录。",
         "operationId": "uploadImage",
         "security": [
           {
@@ -9067,7 +9067,7 @@
           "createdAt"
         ]
       },
-      "SelfProfile": {
+      "SelfProfileVO": {
         "type": "object",
         "properties": {
           "id": {
@@ -10463,7 +10463,7 @@
             "example": 604800
           },
           "user": {
-            "$ref": "#/components/schemas/SelfProfile"
+            "$ref": "#/components/schemas/SelfProfileVO"
           }
         },
         "required": [
@@ -10973,7 +10973,7 @@
           "code"
         ]
       },
-      "UpdateProfileRequest": {
+      "UpdateProfileDTO": {
         "type": "object",
         "properties": {
           "nickname": {

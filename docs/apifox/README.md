@@ -1,6 +1,6 @@
 # Apifox 导入说明
 
-`glimmer-openapi.json` 是按 [04-接口设计文档.md](../04-接口设计文档.md) v1.10 对齐的 OpenAPI 3.0 契约（`info.version = 1.8.1`），覆盖接口总览中的 **63 个接口**（54 条路径，部分路径同时有 POST / DELETE）。1.8.1 只同步上传接口的实现口径（后端中转、最小校验、OSS 对象 public-read）与示例 URL，接口路径与出入参未变；04 v1.9 的本人资料接口口径同期并入。
+`glimmer-openapi.json` 是按 [04-接口设计文档.md](../04-接口设计文档.md) v1.11 对齐的 OpenAPI 3.0 契约（`info.version = 1.8.2`），覆盖接口总览中的 **63 个接口**（54 条路径，部分路径同时有 POST / DELETE）。1.8.2 改为开发与发布都只使用 OSS 的后端中转口径，并将本人资料相关 schema 重命名为 `SelfProfileVO` / `UpdateProfileDTO`（JSON 字段不变）。
 
 ## 导入步骤
 

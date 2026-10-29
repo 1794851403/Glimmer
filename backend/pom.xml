@@ -80,7 +80,7 @@
             <artifactId>spring-boot-starter-amqp</artifactId>
         </dependency>
 
-        <!-- 对象存储：生产 / 演示使用 OSS；本地开发走 LocalStorageServiceImpl -->
+        <!-- 对象存储：开发与发布均使用 OSS -->
         <dependency>
             <groupId>com.aliyun.oss</groupId>
             <artifactId>aliyun-sdk-oss</artifactId>

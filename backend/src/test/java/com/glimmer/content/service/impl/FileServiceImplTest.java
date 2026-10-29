@@ -2,7 +2,7 @@ package com.glimmer.content.service.impl;
 
 import com.glimmer.common.exception.BizException;
 import com.glimmer.common.exception.ErrorCode;
-import com.glimmer.common.storage.StorageService;
+import com.glimmer.common.storage.OssStorageService;
 import com.glimmer.common.web.LoginUser;
 import com.glimmer.common.web.UserContext;
 import com.glimmer.content.dto.ImageUploadResponse;
@@ -25,13 +25,13 @@ import static org.mockito.Mockito.when;
 
 class FileServiceImplTest {
 
-    private StorageService storageService;
+    private OssStorageService ossStorageService;
     private FileServiceImpl fileService;
 
     @BeforeEach
     void setUp() {
-        storageService = mock(StorageService.class);
-        fileService = new FileServiceImpl(storageService);
+        ossStorageService = mock(OssStorageService.class);
+        fileService = new FileServiceImpl(ossStorageService);
         UserContext.set(new LoginUser(1L, "USER"));
     }
 
@@ -44,7 +44,7 @@ class FileServiceImplTest {
     void shouldUploadImageWithGeneratedObjectName() {
         MockMultipartFile file = new MockMultipartFile(
                 "file", "photo.PNG", "image/png", new byte[]{1, 2, 3});
-        when(storageService.upload(any(), anyString(), eq("image/png")))
+        when(ossStorageService.upload(any(), anyString(), eq("image/png")))
                 .thenReturn("https://cdn.example.com/images/1/x.png");
 
         ImageUploadResponse response = fileService.uploadImage(file);
@@ -54,7 +54,7 @@ class FileServiceImplTest {
         assertThat(response.contentType()).isEqualTo("image/png");
 
         ArgumentCaptor<String> objectName = ArgumentCaptor.forClass(String.class);
-        verify(storageService).upload(any(), objectName.capture(), eq("image/png"));
+        verify(ossStorageService).upload(any(), objectName.capture(), eq("image/png"));
         assertThat(objectName.getValue())
                 .matches("images/1/\\d{4}/\\d{2}/\\d{2}/[0-9a-f]{32}\\.png");
     }
@@ -67,7 +67,7 @@ class FileServiceImplTest {
         assertThatThrownBy(() -> fileService.uploadImage(file))
                 .isInstanceOfSatisfying(BizException.class,
                         e -> assertThat(e.errorCode()).isEqualTo(ErrorCode.UPLOAD_TYPE_NOT_ALLOWED));
-        verifyNoInteractions(storageService);
+        verifyNoInteractions(ossStorageService);
     }
 
     @Test
@@ -79,7 +79,7 @@ class FileServiceImplTest {
         assertThatThrownBy(() -> fileService.uploadImage(file))
                 .isInstanceOfSatisfying(BizException.class,
                         e -> assertThat(e.errorCode()).isEqualTo(ErrorCode.UPLOAD_TOO_LARGE));
-        verifyNoInteractions(storageService);
+        verifyNoInteractions(ossStorageService);
     }
 
     @Test
@@ -90,7 +90,7 @@ class FileServiceImplTest {
         assertThatThrownBy(() -> fileService.uploadImage(file))
                 .isInstanceOfSatisfying(BizException.class,
                         e -> assertThat(e.errorCode()).isEqualTo(ErrorCode.UPLOAD_TYPE_NOT_ALLOWED));
-        verifyNoInteractions(storageService);
+        verifyNoInteractions(ossStorageService);
     }
 
     @Test
@@ -101,6 +101,6 @@ class FileServiceImplTest {
         assertThatThrownBy(() -> fileService.uploadImage(file))
                 .isInstanceOfSatisfying(BizException.class,
                         e -> assertThat(e.errorCode()).isEqualTo(ErrorCode.UPLOAD_TYPE_NOT_ALLOWED));
-        verifyNoInteractions(storageService);
+        verifyNoInteractions(ossStorageService);
     }
 }

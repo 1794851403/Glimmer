@@ -185,10 +185,6 @@ glimmer:
   jwt:
     secret: ${JWT_SECRET:}
   storage:
-    type: ${STORAGE_TYPE:local}
-    local:
-      root-dir: ${STORAGE_LOCAL_ROOT:./uploads}
-      public-base-url: ${STORAGE_LOCAL_BASE_URL:http://localhost:8080}
     oss:
       endpoint: ${OSS_ENDPOINT:}
       bucket: ${OSS_BUCKET:}
@@ -210,10 +206,9 @@ glimmer:
 `com.glimmer.GlimmerApplication`，工作目录设为 `backend/`；从仓库根目录执行
 `mvn -f backend/pom.xml spring-boot:run` 也能读取 `deploy/.env`。
 
-图片存储默认 `STORAGE_TYPE=local`，写入 `backend/uploads/` 并通过 `/uploads/**` 访问；
-切 OSS 时在 `.env` 填写 `OSS_ENDPOINT` / `OSS_BUCKET` / `OSS_ACCESS_KEY_ID` /
-`OSS_ACCESS_KEY_SECRET`，并保持 `STORAGE_TYPE=oss`。OSS 桶保持私有，但需关闭
-Bucket 的「阻止公共访问」，后端才能在上传时通过对象 ACL 把单个对象设为 `public-read`；否则上传返回
+图片存储开发和发布都只走 OSS，在 `.env` 填写 `OSS_ENDPOINT` / `OSS_BUCKET` /
+`OSS_ACCESS_KEY_ID` / `OSS_ACCESS_KEY_SECRET`。OSS 桶保持私有，但需关闭 Bucket 的
+「阻止公共访问」，后端才能在上传时通过对象 ACL 把单个对象设为 `public-read`；否则上传返回
 `50301`。AK/SK 只放在 `.env`，不要提交。
 
 如果后端也容器化，则 host 改为 `mysql` / `redis-core` / `redis-cache` / `rabbitmq` / `elasticsearch`，

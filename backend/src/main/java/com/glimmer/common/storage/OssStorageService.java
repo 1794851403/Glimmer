@@ -11,43 +11,39 @@ import com.glimmer.common.exception.BizException;
 import com.glimmer.common.exception.ErrorCode;
 import jakarta.annotation.PreDestroy;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Service;
 
 import java.io.ByteArrayInputStream;
 
 /**
- * 阿里云 OSS 存储：后端中转上传，服务端生成对象名后 putObject。
+ * 阿里云 OSS 上传：开发与发布共用同一个桶，后端中转 putObject。
  *
- * <p>只要 {@code glimmer.storage.type=oss} 就启用；缺少必要配置时启动失败，避免运行期才报错。
+ * <p>缺少必要配置时启动失败，避免运行期才报错。
  */
 @Slf4j
 @Service
-@ConditionalOnProperty(prefix = "glimmer.storage", name = "type", havingValue = "oss")
-public class OssStorageServiceImpl implements StorageService {
+public class OssStorageService {
 
     private final OSS ossClient;
     private final String bucket;
     private final String publicBaseUrl;
 
-    public OssStorageServiceImpl(StorageProperties properties) {
-        StorageProperties.Oss oss = properties.oss();
-        if (oss == null) {
-            throw new IllegalStateException("glimmer.storage.type=oss 时必须配置 glimmer.storage.oss.*");
+    public OssStorageService(OssProperties properties) {
+        if (properties == null) {
+            throw new IllegalStateException("缺少 OSS 配置: glimmer.storage.oss.*");
         }
-        String endpoint = normalizeEndpoint(oss.endpoint());
+        String endpoint = normalizeEndpoint(properties.endpoint());
         require(endpoint, "OSS_ENDPOINT");
-        require(oss.bucket(), "OSS_BUCKET");
-        require(oss.accessKeyId(), "OSS_ACCESS_KEY_ID");
-        require(oss.accessKeySecret(), "OSS_ACCESS_KEY_SECRET");
+        require(properties.bucket(), "OSS_BUCKET");
+        require(properties.accessKeyId(), "OSS_ACCESS_KEY_ID");
+        require(properties.accessKeySecret(), "OSS_ACCESS_KEY_SECRET");
 
-        this.bucket = oss.bucket().trim();
+        this.bucket = properties.bucket().trim();
         this.ossClient = new OSSClientBuilder().build(
-                endpoint, oss.accessKeyId().trim(), oss.accessKeySecret().trim());
-        this.publicBaseUrl = publicBaseUrl(oss.publicBaseUrl(), bucket, endpoint);
+                endpoint, properties.accessKeyId().trim(), properties.accessKeySecret().trim());
+        this.publicBaseUrl = publicBaseUrl(properties.publicBaseUrl(), bucket, endpoint);
     }
 
-    @Override
     public String upload(byte[] content, String objectName, String contentType) {
         try {
             ObjectMetadata metadata = new ObjectMetadata();

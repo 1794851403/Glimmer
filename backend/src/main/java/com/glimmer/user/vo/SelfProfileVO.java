@@ -1,4 +1,4 @@
-package com.glimmer.user.dto;
+package com.glimmer.user.vo;
 
 import com.glimmer.user.entity.UserDO;
 
@@ -6,11 +6,11 @@ import java.time.LocalDateTime;
 import java.time.ZoneId;
 
 /**
- * 本人资料：GET /users/me、PATCH /users/me 的响应，登录响应也复用该结构。
+ * 本人资料出参：GET /users/me、PATCH /users/me 的响应，登录响应也复用该结构。
  *
  * <p>ID 按接口约定序列化为字符串；时间用 epoch 毫秒；手机号脱敏。
  */
-public record SelfProfile(
+public record SelfProfileVO(
         /** 用户 ID，以字符串序列化，避免前端 Long 精度丢失。 */
         String id,
 
@@ -44,8 +44,8 @@ public record SelfProfile(
 
     private static final ZoneId ZONE = ZoneId.of("Asia/Shanghai");
 
-    public static SelfProfile from(UserDO user) {
-        return new SelfProfile(
+    public static SelfProfileVO from(UserDO user) {
+        return new SelfProfileVO(
                 String.valueOf(user.getId()),
                 maskPhone(user.getPhone()),
                 user.getNickname(),

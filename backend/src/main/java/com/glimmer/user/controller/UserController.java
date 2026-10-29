@@ -1,8 +1,8 @@
 package com.glimmer.user.controller;
 
 import com.glimmer.common.api.Result;
-import com.glimmer.user.dto.SelfProfile;
-import com.glimmer.user.dto.UpdateProfileRequest;
+import com.glimmer.user.dto.UpdateProfileDTO;
+import com.glimmer.user.vo.SelfProfileVO;
 import com.glimmer.user.service.UserService;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
@@ -29,7 +29,7 @@ public class UserController {
      * <p>返回完整资料，既用于个人主页展示，也用于编辑页预填。
      */
     @GetMapping("/me")
-    public Result<SelfProfile> me() {
+    public Result<SelfProfileVO> me() {
         return Result.ok(userService.getMyProfile());
     }
 
@@ -40,7 +40,7 @@ public class UserController {
      * 成功后返回修改后的完整资料，前端可直接替换本地状态。
      */
     @PatchMapping("/me")
-    public Result<SelfProfile> updateMe(@RequestBody UpdateProfileRequest request) {
+    public Result<SelfProfileVO> updateMe(@RequestBody UpdateProfileDTO request) {
         return Result.ok(userService.updateMyProfile(request));
     }
 }

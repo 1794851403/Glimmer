@@ -4,8 +4,8 @@ import com.glimmer.common.exception.BizException;
 import com.glimmer.common.exception.ErrorCode;
 import com.glimmer.common.web.LoginUser;
 import com.glimmer.common.web.UserContext;
-import com.glimmer.user.dto.SelfProfile;
-import com.glimmer.user.dto.UpdateProfileRequest;
+import com.glimmer.user.dto.UpdateProfileDTO;
+import com.glimmer.user.vo.SelfProfileVO;
 import com.glimmer.user.entity.UserDO;
 import com.glimmer.user.mapper.UserMapper;
 import org.junit.jupiter.api.AfterEach;
@@ -44,7 +44,7 @@ class UserServiceImplTest {
     void shouldReturnCurrentProfile() {
         when(userMapper.selectById(1L)).thenReturn(user("小光", "", ""));
 
-        SelfProfile profile = userService.getMyProfile();
+        SelfProfileVO profile = userService.getMyProfile();
 
         assertThat(profile.id()).isEqualTo("1");
         assertThat(profile.phone()).isEqualTo("138****8000");
@@ -59,7 +59,7 @@ class UserServiceImplTest {
         when(userMapper.updateById(any(UserDO.class))).thenReturn(1);
         when(userMapper.selectById(1L)).thenReturn(user("小光", "", "记录生活"));
 
-        userService.updateMyProfile(new UpdateProfileRequest("  小光  ", null, null));
+        userService.updateMyProfile(new UpdateProfileDTO("  小光  ", null, null));
 
         UserDO patch = capturedPatch();
         assertThat(patch.getId()).isEqualTo(1L);
@@ -73,7 +73,7 @@ class UserServiceImplTest {
         when(userMapper.updateById(any(UserDO.class))).thenReturn(1);
         when(userMapper.selectById(1L)).thenReturn(user("小光", "", ""));
 
-        userService.updateMyProfile(new UpdateProfileRequest(null, null, ""));
+        userService.updateMyProfile(new UpdateProfileDTO(null, null, ""));
 
         UserDO patch = capturedPatch();
         assertThat(patch.getBio()).isEmpty();
@@ -87,14 +87,14 @@ class UserServiceImplTest {
         when(userMapper.selectById(1L)).thenReturn(user("小光", "https://cdn.example.com/a.png", ""));
 
         userService.updateMyProfile(
-                new UpdateProfileRequest(null, "https://cdn.example.com/a.png", null));
+                new UpdateProfileDTO(null, "https://cdn.example.com/a.png", null));
 
         assertThat(capturedPatch().getAvatarUrl()).isEqualTo("https://cdn.example.com/a.png");
     }
 
     @Test
     void shouldRejectEmptyRequest() {
-        assertThatThrownBy(() -> userService.updateMyProfile(new UpdateProfileRequest(null, null, null)))
+        assertThatThrownBy(() -> userService.updateMyProfile(new UpdateProfileDTO(null, null, null)))
                 .isInstanceOfSatisfying(BizException.class,
                         e -> assertThat(e.errorCode()).isEqualTo(ErrorCode.INVALID_PARAM));
         verifyNoInteractions(userMapper);
@@ -102,7 +102,7 @@ class UserServiceImplTest {
 
     @Test
     void shouldRejectBlankNickname() {
-        assertThatThrownBy(() -> userService.updateMyProfile(new UpdateProfileRequest("   ", null, null)))
+        assertThatThrownBy(() -> userService.updateMyProfile(new UpdateProfileDTO("   ", null, null)))
                 .isInstanceOfSatisfying(BizException.class,
                         e -> assertThat(e.errorCode()).isEqualTo(ErrorCode.CONTENT_INVALID));
         verifyNoInteractions(userMapper);
@@ -114,7 +114,7 @@ class UserServiceImplTest {
         when(userMapper.updateById(any(UserDO.class))).thenReturn(1);
         when(userMapper.selectById(1L)).thenReturn(user(nickname, "", ""));
 
-        userService.updateMyProfile(new UpdateProfileRequest(nickname, null, null));
+        userService.updateMyProfile(new UpdateProfileDTO(nickname, null, null));
 
         assertThat(capturedPatch().getNickname()).isEqualTo(nickname);
     }
@@ -123,7 +123,7 @@ class UserServiceImplTest {
     void shouldRejectTooLongNickname() {
         String nickname = "a".repeat(33);
 
-        assertThatThrownBy(() -> userService.updateMyProfile(new UpdateProfileRequest(nickname, null, null)))
+        assertThatThrownBy(() -> userService.updateMyProfile(new UpdateProfileDTO(nickname, null, null)))
                 .isInstanceOfSatisfying(BizException.class,
                         e -> assertThat(e.errorCode()).isEqualTo(ErrorCode.CONTENT_INVALID));
         verifyNoInteractions(userMapper);
@@ -133,7 +133,7 @@ class UserServiceImplTest {
     void shouldRejectTooLongBio() {
         String bio = "a".repeat(201);
 
-        assertThatThrownBy(() -> userService.updateMyProfile(new UpdateProfileRequest(null, null, bio)))
+        assertThatThrownBy(() -> userService.updateMyProfile(new UpdateProfileDTO(null, null, bio)))
                 .isInstanceOfSatisfying(BizException.class,
                         e -> assertThat(e.errorCode()).isEqualTo(ErrorCode.CONTENT_INVALID));
         verifyNoInteractions(userMapper);
@@ -145,7 +145,7 @@ class UserServiceImplTest {
         when(userMapper.updateById(any(UserDO.class))).thenReturn(1);
         when(userMapper.selectById(1L)).thenReturn(user("小光", "", bio));
 
-        userService.updateMyProfile(new UpdateProfileRequest(null, null, bio));
+        userService.updateMyProfile(new UpdateProfileDTO(null, null, bio));
 
         assertThat(capturedPatch().getBio()).isEqualTo(bio);
     }
@@ -153,7 +153,7 @@ class UserServiceImplTest {
     @Test
     void shouldRejectInvalidAvatarUrl() {
         assertThatThrownBy(() -> userService.updateMyProfile(
-                new UpdateProfileRequest(null, "ftp://cdn.example.com/a.png", null)))
+                new UpdateProfileDTO(null, "ftp://cdn.example.com/a.png", null)))
                 .isInstanceOfSatisfying(BizException.class,
                         e -> assertThat(e.errorCode()).isEqualTo(ErrorCode.INVALID_PARAM));
         verifyNoInteractions(userMapper);

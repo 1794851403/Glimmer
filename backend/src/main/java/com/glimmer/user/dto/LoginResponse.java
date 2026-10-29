@@ -1,5 +1,7 @@
 package com.glimmer.user.dto;
 
+import com.glimmer.user.vo.SelfProfileVO;
+
 /**
  * 登录响应：令牌 + 用户信息。
  */
@@ -14,6 +16,6 @@ public record LoginResponse(
         long expiresIn,
 
         /** 登录用户信息，手机号已脱敏；手机号不存在时后端自动注册，这里就是新账号信息。 */
-        SelfProfile user
+        SelfProfileVO user
 ) {
 }

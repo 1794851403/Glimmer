@@ -13,7 +13,7 @@ src/main/java/com/glimmer/
 │   ├── config/         # 双 Redis、Redisson、CORS、MVC
 │   ├── exception/      # 错误码、业务异常、全局异常处理
 │   ├── ratelimit/      # Redis Lua 滑动窗口
-│   ├── storage/        # StorageService：Local / OSS 双实现
+│   ├── storage/        # OssStorageService：后端中转 OSS 上传
 │   └── web/            # TraceId、UserContext
 ├── content/
 │   ├── controller/     # files/images 图片上传
@@ -22,7 +22,8 @@ src/main/java/com/glimmer/
 │       └── impl/       # FileServiceImpl：最小校验 + 服务端生成对象名
 └── user/
     ├── controller/     # auth/sms-code|login|logout；users/me GET / PATCH
-    ├── dto/
+    ├── dto/            # 入参：LoginRequest、SmsCodeRequest、UpdateProfileDTO
+    ├── vo/             # 出参：SelfProfileVO 等
     ├── entity/
     ├── mapper/
     └── service/        # AuthService、UserService 接口
@@ -43,12 +44,12 @@ src/main/java/com/glimmer/
   `glimmer:user:token:{userId}`，支持登出 / 封禁主动失效。
 - **数据库**：Flyway `V1__init_schema.sql`（11 张表）、`V2__seed_tags.sql`。
 - **限流**：验证码默认 5 次/小时（当前联调期配置为 100，见 `application.yml`）、登录 10 次/小时。
-- **图片存储**：`StorageService` 双实现，`STORAGE_TYPE=local` 写 `./uploads/`（`/uploads/**` 静态访问），
-  `oss` 走后端中转上传；OSS 桶保持私有，上传时仅将本次对象设为 `public-read`。
+- **图片存储**：开发和发布都走后端中转 OSS 上传，不再提供本地实现；OSS 桶保持私有，
+  上传时仅将本次对象设为 `public-read`。
 
 ## 运行
 
-1. 在 `deploy/` 中准备 `.env`（见 `deploy/README.md`），至少设置 MySQL / Redis 密码与 `JWT_SECRET`（≥32 字节）。
+1. 在 `deploy/` 中准备 `.env`（见 `deploy/README.md`），至少设置 MySQL / Redis 密码、`JWT_SECRET`（≥32 字节）与 `OSS_*` 配置。
 2. 启动基础设施：`cd deploy && docker compose up -d`。
 3. 运行：
 
@@ -98,11 +99,12 @@ curl -s -X POST http://localhost:8080/api/v1/files/images \
   -F "file=@photo.jpg"
 ```
 
-- 成功返回 `{ url, size, contentType }`；`local` profile 的 URL 形如
-  `http://localhost:8080/uploads/images/{userId}/yyyy/MM/dd/{uuid}.jpg`；
+- 成功返回 `{ url, size, contentType }`；URL 形如
+  `https://{bucket}.{endpoint}/images/{userId}/yyyy/MM/dd/{uuid}.jpg`；
 - 只接受 jpg / jpeg / png / webp，单文件 ≤5MB；不做 magic bytes 校验与图片审核；
-- 切 OSS 时在 `deploy/.env` 设置 `STORAGE_TYPE=oss` 与 `OSS_*` 变量，桶保持私有但需关闭
-  「阻止公共访问」，后端会在上传时通过对象 ACL 把单个对象设为 `public-read`。
+- 在 `deploy/.env` 设置 `OSS_ENDPOINT` / `OSS_BUCKET` / `OSS_ACCESS_KEY_ID` /
+  `OSS_ACCESS_KEY_SECRET`；桶保持私有但需关闭「阻止公共访问」，后端会在上传时通过对象 ACL
+  把单个对象设为 `public-read`。
 
 ## 测试
 
@@ -110,7 +112,7 @@ curl -s -X POST http://localhost:8080/api/v1/files/images \
 mvn test
 ```
 
-当前 22 个单元测试：JWT、`UserServiceImpl`、`FileServiceImpl`、`LocalStorageServiceImpl`；
+当前 20 个单元测试：JWT、`UserServiceImpl`、`FileServiceImpl`；
 接 Testcontainers 后补 MySQL / Redis / RabbitMQ / OSS 集成测试与 ArchUnit 模块边界测试。
 
 ## 待办

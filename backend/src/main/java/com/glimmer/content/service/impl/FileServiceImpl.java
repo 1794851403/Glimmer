@@ -2,7 +2,7 @@ package com.glimmer.content.service.impl;
 
 import com.glimmer.common.exception.BizException;
 import com.glimmer.common.exception.ErrorCode;
-import com.glimmer.common.storage.StorageService;
+import com.glimmer.common.storage.OssStorageService;
 import com.glimmer.common.web.UserContext;
 import com.glimmer.content.dto.ImageUploadResponse;
 import com.glimmer.content.service.FileService;
@@ -19,7 +19,7 @@ import java.util.Set;
 import java.util.UUID;
 
 /**
- * 图片上传实现：校验扩展名与大小，生成对象名后交给 {@link StorageService}。
+ * 图片上传实现：校验扩展名与大小，生成对象名后交给 {@link OssStorageService}。
  *
  * <p>按当前 MVP 口径，不做 magic bytes 校验，也不做图片内容审核。
  */
@@ -32,10 +32,10 @@ public class FileServiceImpl implements FileService {
     private static final ZoneId ZONE = ZoneId.of("Asia/Shanghai");
     private static final DateTimeFormatter DATE_PATH = DateTimeFormatter.ofPattern("yyyy/MM/dd");
 
-    private final StorageService storageService;
+    private final OssStorageService ossStorageService;
 
-    public FileServiceImpl(StorageService storageService) {
-        this.storageService = storageService;
+    public FileServiceImpl(OssStorageService ossStorageService) {
+        this.ossStorageService = ossStorageService;
     }
 
     @Override
@@ -63,7 +63,7 @@ public class FileServiceImpl implements FileService {
             throw new BizException(ErrorCode.INTERNAL_ERROR, "读取上传文件失败", e);
         }
 
-        String url = storageService.upload(content, objectName, contentType);
+        String url = ossStorageService.upload(content, objectName, contentType);
         return new ImageUploadResponse(url, file.getSize(), contentType);
     }
 

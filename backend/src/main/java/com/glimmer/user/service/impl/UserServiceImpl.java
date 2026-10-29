@@ -3,8 +3,8 @@ package com.glimmer.user.service.impl;
 import com.glimmer.common.exception.BizException;
 import com.glimmer.common.exception.ErrorCode;
 import com.glimmer.common.web.UserContext;
-import com.glimmer.user.dto.SelfProfile;
-import com.glimmer.user.dto.UpdateProfileRequest;
+import com.glimmer.user.dto.UpdateProfileDTO;
+import com.glimmer.user.vo.SelfProfileVO;
 import com.glimmer.user.entity.UserDO;
 import com.glimmer.user.mapper.UserMapper;
 import com.glimmer.user.service.UserService;
@@ -33,12 +33,12 @@ public class UserServiceImpl implements UserService {
     }
 
     @Override
-    public SelfProfile getMyProfile() {
-        return SelfProfile.from(requireCurrentUser());
+    public SelfProfileVO getMyProfile() {
+        return SelfProfileVO.from(requireCurrentUser());
     }
 
     @Override
-    public SelfProfile updateMyProfile(UpdateProfileRequest request) {
+    public SelfProfileVO updateMyProfile(UpdateProfileDTO request) {
         if (request == null || request.isEmpty()) {
             throw new BizException(ErrorCode.INVALID_PARAM, "至少提供一个待修改字段");
         }
@@ -54,7 +54,7 @@ public class UserServiceImpl implements UserService {
             // 账号不物理删除，行不存在正常不会发生；按登录失效处理。
             throw new BizException(ErrorCode.UNAUTHENTICATED);
         }
-        return SelfProfile.from(requireCurrentUser());
+        return SelfProfileVO.from(requireCurrentUser());
     }
 
     private UserDO requireCurrentUser() {

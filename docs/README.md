@@ -10,16 +10,16 @@
 |---|---|---|---|
 | 1 需求分析 | 产品需求文档 PRD | [01-产品需求文档.md](01-产品需求文档.md) | ✅ 已评审 |
 | 1 需求分析 | 用户故事地图（图片 + HTML 源） | [01-用户故事地图.png](01-用户故事地图.png) · [HTML](01-用户故事地图.html) | ✅ 已产出 |
-| 2 架构设计 | 技术方案/架构设计文档 | [02-架构设计文档.md](02-架构设计文档.md) | ✅ v1.2（P0 已收口；P1 随 M1/M2 落地；上传 MVP 为后端中转） |
+| 2 架构设计 | 技术方案/架构设计文档 | [02-架构设计文档.md](02-架构设计文档.md) | ✅ v1.3（P0 已收口；P1 随 M1/M2 落地；上传 MVP 为后端中转，开发与发布均使用 OSS） |
 | 2 架构设计 | 基础设施 Compose / VM 部署说明 | [deploy/README.md](../deploy/README.md) · [docker-compose.yml](../deploy/docker-compose.yml) | ✅ 已产出（CentOS 7 `192.168.157.129`） |
 | 3 详细设计 | 数据库表与功能映射分析（评审稿） | [03-数据库设计分析.md](03-数据库设计分析.md) | ✅ 决策已确认 |
 | 3 详细设计 | 数据库设计文档 | [03-数据库设计文档.md](03-数据库设计文档.md) | ✅ v1.4（已定稿） |
 | 3 详细设计 | 数据库表结构 ER 图 | [03-数据库表结构ER图.png](03-数据库表结构ER图.png) · [SVG](03-数据库表结构ER图.svg) | ✅ 已产出 |
-| 3 详细设计 | 接口设计文档 API | [04-接口设计文档.md](04-接口设计文档.md) | ✅ v1.10（已定稿） |
-| 3 详细设计 | OpenAPI 3.0 / Apifox 导入文件 | [apifox/glimmer-openapi.json](apifox/glimmer-openapi.json) · [导入说明](apifox/README.md) | ✅ 1.8.1（63 接口） |
+| 3 详细设计 | 接口设计文档 API | [04-接口设计文档.md](04-接口设计文档.md) | ✅ v1.11（已定稿） |
+| 3 详细设计 | OpenAPI 3.0 / Apifox 导入文件 | [apifox/glimmer-openapi.json](apifox/glimmer-openapi.json) · [导入说明](apifox/README.md) | ✅ 1.8.2（63 接口） |
 | 4 开发 | 后端骨架 + 登录 / 资料 / 上传 | [backend/README.md](../backend/README.md) | ✅ 登录链路已对 VM 端到端跑通；`/users/me`、图片上传已实现（上传待 VM 端到端） |
 | 4 开发 | 后端骨架详解（逐层讲解长图） | [骨架详解.png](骨架详解.png) | ✅ 已产出 |
 | 5 测试 | 接口测试（Apifox）+ 压测报告（JMeter） | 05-测试报告.md | 待编写 |
-| 6 部署 | 虚拟机 Docker 部署手册（组件 / 版本 / 卷 / 网桥） | [06-部署文档.md](06-部署文档.md) | ✅ v1.2（核心组件已在 VM 验证；图片存储配置已补） |
+| 6 部署 | 虚拟机 Docker 部署手册（组件 / 版本 / 卷 / 网桥） | [06-部署文档.md](06-部署文档.md) | ✅ v1.3（核心组件已在 VM 验证；开发与发布均使用 OSS） |
 | 6 部署 | 基础设施 Compose / VM 安装与排错 | [deploy/README.md](../deploy/README.md) | ✅ MySQL + Redis core/cache + RabbitMQ（延迟插件）已启动；ES / Kibana 待搜索模块 |
 | 7 演进 | 微服务演进方案 | 07-微服务演进方案.md | 待编写 |

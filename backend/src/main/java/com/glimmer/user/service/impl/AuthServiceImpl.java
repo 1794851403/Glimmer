@@ -13,7 +13,7 @@ import com.glimmer.user.dto.LoginRequest;
 import com.glimmer.user.dto.LoginResponse;
 import com.glimmer.user.dto.SmsCodeRequest;
 import com.glimmer.user.dto.SmsCodeResponse;
-import com.glimmer.user.dto.SelfProfile;
+import com.glimmer.user.vo.SelfProfileVO;
 import com.glimmer.user.entity.UserDO;
 import com.glimmer.user.mapper.UserMapper;
 import com.glimmer.user.service.ActiveUserTracker;
@@ -129,7 +129,7 @@ public class AuthServiceImpl implements AuthService {
         activeUserTracker.markActive(user.getId());
 
         return new LoginResponse("Bearer", token, jwtService.ttl().toSeconds(),
-                SelfProfile.from(user));
+                SelfProfileVO.from(user));
     }
 
     @Override
