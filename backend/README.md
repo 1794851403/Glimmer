@@ -13,7 +13,13 @@ src/main/java/com/glimmer/
 │   ├── config/         # 双 Redis、Redisson、CORS、MVC
 │   ├── exception/      # 错误码、业务异常、全局异常处理
 │   ├── ratelimit/      # Redis Lua 滑动窗口
+│   ├── storage/        # StorageService：Local / OSS 双实现
 │   └── web/            # TraceId、UserContext
+├── content/
+│   ├── controller/     # files/images 图片上传
+│   ├── dto/
+│   └── service/        # FileService 接口
+│       └── impl/       # FileServiceImpl：最小校验 + 服务端生成对象名
 └── user/
     ├── controller/     # auth/sms-code|login|logout；users/me GET / PATCH
     ├── dto/
@@ -37,6 +43,8 @@ src/main/java/com/glimmer/
   `glimmer:user:token:{userId}`，支持登出 / 封禁主动失效。
 - **数据库**：Flyway `V1__init_schema.sql`（11 张表）、`V2__seed_tags.sql`。
 - **限流**：验证码默认 5 次/小时（当前联调期配置为 100，见 `application.yml`）、登录 10 次/小时。
+- **图片存储**：`StorageService` 双实现，`STORAGE_TYPE=local` 写 `./uploads/`（`/uploads/**` 静态访问），
+  `oss` 走后端中转上传；OSS 桶保持私有，上传时仅将本次对象设为 `public-read`。
 
 ## 运行
 
@@ -82,16 +90,32 @@ curl -s -X PATCH http://localhost:8080/api/v1/users/me \
   -d '{"nickname":"小光","bio":"记录生活里的微光"}'
 ```
 
+## 验证图片上传
+
+```bash
+curl -s -X POST http://localhost:8080/api/v1/files/images \
+  -H "Authorization: Bearer <accessToken>" \
+  -F "file=@photo.jpg"
+```
+
+- 成功返回 `{ url, size, contentType }`；`local` profile 的 URL 形如
+  `http://localhost:8080/uploads/images/{userId}/yyyy/MM/dd/{uuid}.jpg`；
+- 只接受 jpg / jpeg / png / webp，单文件 ≤5MB；不做 magic bytes 校验与图片审核；
+- 切 OSS 时在 `deploy/.env` 设置 `STORAGE_TYPE=oss` 与 `OSS_*` 变量，桶保持私有但需关闭
+  「阻止公共访问」，后端会在上传时通过对象 ACL 把单个对象设为 `public-read`。
+
 ## 测试
 
 ```bash
 mvn test
 ```
 
-当前有 JWT 与 `UserServiceImpl` 单元测试；接 Testcontainers 后补 MySQL / Redis / RabbitMQ 集成测试与 ArchUnit 模块边界测试。
+当前 22 个单元测试：JWT、`UserServiceImpl`、`FileServiceImpl`、`LocalStorageServiceImpl`；
+接 Testcontainers 后补 MySQL / Redis / RabbitMQ / OSS 集成测试与 ArchUnit 模块边界测试。
 
 ## 待办
 
-- OSS / DeepSeek / RabbitMQ / ES 的配置与实现（按 M1/M2）；
-- 上传、发帖、Feed / 详情纵向链路；
+- 发帖、Feed / 详情纵向链路；
+- OSS 直传（预签名 URL）、magic bytes 校验、图片内容审核（演进）；
+- DeepSeek / ES 的配置与实现（按 M1/M2）；
 - ArchUnit、Testcontainers、CI。

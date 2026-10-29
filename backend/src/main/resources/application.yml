@@ -26,6 +26,11 @@ spring:
     locations: classpath:db/migration
   jackson:
     time-zone: Asia/Shanghai
+  servlet:
+    multipart:
+      # 与 04 §4.1 的 5MB 限制一致；超过由 GlobalExceptionHandler 转为 45002
+      max-file-size: 5MB
+      max-request-size: 10MB
   rabbitmq:
     host: ${RABBITMQ_HOST:192.168.157.129}
     port: ${RABBITMQ_PORT:5672}
@@ -55,6 +60,18 @@ glimmer:
   jwt:
     secret: ${JWT_SECRET:}
     expire: 7d
+  # 图片存储：local 写本地目录并映射 /uploads/**；oss 走后端中转上传
+  storage:
+    type: ${STORAGE_TYPE:local}
+    local:
+      root-dir: ${STORAGE_LOCAL_ROOT:./uploads}
+      public-base-url: ${STORAGE_LOCAL_BASE_URL:http://localhost:8080}
+    oss:
+      endpoint: ${OSS_ENDPOINT:}
+      bucket: ${OSS_BUCKET:}
+      access-key-id: ${OSS_ACCESS_KEY_ID:}
+      access-key-secret: ${OSS_ACCESS_KEY_SECRET:}
+      public-base-url: ${OSS_PUBLIC_BASE_URL:}
   redis:
     core:
       host: ${REDIS_CORE_HOST:192.168.157.129}

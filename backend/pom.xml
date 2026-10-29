@@ -24,6 +24,7 @@
         <redisson.version>3.35.0</redisson.version>
         <jjwt.version>0.12.6</jjwt.version>
         <archunit.version>1.3.0</archunit.version>
+        <aliyun-oss.version>3.18.1</aliyun-oss.version>
     </properties>
 
     <dependencies>
@@ -77,6 +78,13 @@
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-amqp</artifactId>
+        </dependency>
+
+        <!-- 对象存储：生产 / 演示使用 OSS；本地开发走 LocalStorageServiceImpl -->
+        <dependency>
+            <groupId>com.aliyun.oss</groupId>
+            <artifactId>aliyun-sdk-oss</artifactId>
+            <version>${aliyun-oss.version}</version>
         </dependency>
 
         <!-- JWT -->
