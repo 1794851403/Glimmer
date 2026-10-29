@@ -77,6 +77,13 @@ public class AuthServiceImpl implements AuthService {
         this.environment = environment;
     }
 
+    /**
+     * 先走小时额度限流，再用 60 秒重发锁防止连续点击；生成 6 位验证码写入 cache Redis（5 分钟），
+     * 服务端日志打印，local / dev profile 额外回传 debugCode。
+     *
+     * @param request 手机号 + 场景
+     * @return 验证码有效期、重发冷却时间与可选的 debugCode
+     */
     @Override
     public SmsCodeResponse sendSmsCode(SmsCodeRequest request) {
         String phone = request.phone();
@@ -98,6 +105,13 @@ public class AuthServiceImpl implements AuthService {
                 (int) RESEND_INTERVAL.toSeconds(), debugCode);
     }
 
+    /**
+     * 限流后用 Lua 原子校验并删除验证码；按手机号查用户，不存在则自动注册；
+     * 封禁账号拒绝登录；成功后签发 JWT、写入 core 白名单并标记活跃。
+     *
+     * @param request 手机号 + 验证码
+     * @return 访问令牌、有效期与本人资料
+     */
     @Override
     public LoginResponse login(LoginRequest request) {
         String phone = request.phone();
@@ -132,6 +146,10 @@ public class AuthServiceImpl implements AuthService {
                 SelfProfileVO.from(user));
     }
 
+    /**
+     * 从 {@link UserContext} 取出当前用户，删除 core Redis 中的 Token 白名单；
+     * 不封禁账号，重新登录会签发新 Token。
+     */
     @Override
     public void logout() {
         tokenStore.remove(UserContext.userId());

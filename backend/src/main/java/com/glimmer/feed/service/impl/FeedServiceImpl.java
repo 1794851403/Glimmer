@@ -27,6 +27,14 @@ public class FeedServiceImpl implements FeedService {
         this.postService = postService;
     }
 
+    /**
+     * 先取当前用户关注的作者 ID；未关注任何人时直接返回空页，否则委托
+     * {@link PostService#listByAuthors} 按发布时间倒序查询公开帖子。
+     *
+     * @param cursor 上一页游标，可为空
+     * @param size   每页数量，默认 20
+     * @return 帖子摘要游标页
+     */
     @Override
     public CursorPage<PostSummaryVO> followFeed(String cursor, Integer size) {
         List<Long> followingIds = userService.listFollowingIds(UserContext.userId());

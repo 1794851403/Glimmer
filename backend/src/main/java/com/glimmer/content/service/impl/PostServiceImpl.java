@@ -81,6 +81,13 @@ public class PostServiceImpl implements PostService {
         this.userService = userService;
     }
 
+    /**
+     * 先规范并校验标题 / 正文 / 图片 / 标签，再按角色决定初始状态：
+     * 普通用户为 0（待审核），管理员为 1（已发布）。帖子、图片、标签在同一事务内写入。
+     *
+     * @param request 标题、正文、图片与标签
+     * @return 新帖子的 ID、状态与发布时间
+     */
     @Override
     @Transactional
     public PostCreateVO create(CreatePostDTO request) {
@@ -113,6 +120,13 @@ public class PostServiceImpl implements PostService {
         return PostCreateVO.from(post);
     }
 
+    /**
+     * 按「公开可见 / 作者本人 / 管理员」三种视角校验可见性，再批量组装图片、标签、作者摘要
+     * 与当前用户是否关注作者；{@code liked} / {@code collected} 在互动模块接入前固定为 false。
+     *
+     * @param rawPostId 帖子 ID，允许数字字符串
+     * @return 帖子详情
+     */
     @Override
     public PostDetailVO getDetail(String rawPostId) {
         Long postId = parsePostId(rawPostId);
@@ -169,6 +183,15 @@ public class PostServiceImpl implements PostService {
         );
     }
 
+    /**
+     * 只查公开状态（0/1）且未删除的帖子，按 {@code published_at DESC, id DESC} 游标分页；
+     * 多取一条判断 {@code hasMore}，再批量补图片、标签与作者摘要，避免 N+1。
+     *
+     * @param authorIds 作者 ID 集合，为空时返回空页
+     * @param rawCursor 上一页游标，可为空，坏游标按首页处理
+     * @param rawSize   每页数量，默认 20，越界夹到 1~50
+     * @return 帖子摘要游标页
+     */
     @Override
     public CursorPage<PostSummaryVO> listByAuthors(Collection<Long> authorIds, String rawCursor, Integer rawSize) {
         List<Long> ids = authorIds == null
@@ -209,6 +232,14 @@ public class PostServiceImpl implements PostService {
         return new CursorPage<>(items, nextCursor, hasMore);
     }
 
+    /**
+     * 校验作者身份与状态（已下架不可编辑），全量替换标题 / 正文 / 图片 / 标签；
+     * 更新主表时统一回到 0 并清空审核信息，图片与标签在同一事务内先删后插。
+     *
+     * @param rawPostId 帖子 ID，允许数字字符串
+     * @param request   标题、正文、图片与标签
+     * @return 编辑后的帖子详情
+     */
     @Override
     @Transactional
     public PostDetailVO update(String rawPostId, CreatePostDTO request) {
@@ -247,6 +278,11 @@ public class PostServiceImpl implements PostService {
         return getDetail(String.valueOf(post.getId()));
     }
 
+    /**
+     * 校验作者身份后置 {@code is_deleted=1}；已删除的帖子直接返回，保证重复删除幂等。
+     *
+     * @param rawPostId 帖子 ID，允许数字字符串
+     */
     @Override
     public void delete(String rawPostId) {
         PostDO post = requireAuthorPost(rawPostId);
@@ -258,6 +294,12 @@ public class PostServiceImpl implements PostService {
                 .set(PostDO::getIsDeleted, 1));
     }
 
+    /**
+     * 校验作者身份且当前状态为 2（审核拒绝），不修改内容，状态 2 → 0 并清空审核信息。
+     *
+     * @param rawPostId 帖子 ID，允许数字字符串
+     * @return 重提后的帖子状态
+     */
     @Override
     public PostCreateVO resubmit(String rawPostId) {
         PostDO post = requireAuthorPost(rawPostId);
@@ -278,6 +320,13 @@ public class PostServiceImpl implements PostService {
         return PostCreateVO.resubmit(post);
     }
 
+    /**
+     * 仅管理员且不能审核自己的帖子；用 CAS 把状态 0 → 1，成功后清空拒绝原因。
+     * 若 CAS 未命中但当前已是 1，按幂等成功返回；其他状态变化返回状态冲突。
+     *
+     * @param rawPostId 帖子 ID，允许数字字符串
+     * @return 审核结果
+     */
     @Override
     public PostAuditVO approve(String rawPostId) {
         LoginUser admin = UserContext.require();
@@ -296,6 +345,14 @@ public class PostServiceImpl implements PostService {
         return PostAuditVO.of(post, 1, null, now, admin.userId());
     }
 
+    /**
+     * 仅管理员且不能审核自己的帖子；原因去空白后校验 1~200 字符；
+     * CAS 把状态 0 → 2，失败说明状态已变化，返回状态冲突。
+     *
+     * @param rawPostId 帖子 ID，允许数字字符串
+     * @param rawReason 拒绝原因
+     * @return 审核结果
+     */
     @Override
     public PostAuditVO reject(String rawPostId, String rawReason) {
         LoginUser admin = UserContext.require();
@@ -311,6 +368,14 @@ public class PostServiceImpl implements PostService {
         return PostAuditVO.of(post, 2, reason, now, admin.userId());
     }
 
+    /**
+     * 仅管理员且不能操作自己的帖子；原因去空白后校验 1~200 字符；
+     * CAS 把状态 0/1 → 3，失败返回状态冲突。
+     *
+     * @param rawPostId 帖子 ID，允许数字字符串
+     * @param rawReason 下架原因
+     * @return 审核结果
+     */
     @Override
     public PostAuditVO takedown(String rawPostId, String rawReason) {
         LoginUser admin = UserContext.require();
@@ -326,6 +391,12 @@ public class PostServiceImpl implements PostService {
         return PostAuditVO.of(post, 3, reason, now, admin.userId());
     }
 
+    /**
+     * 仅管理员且不能操作自己的帖子；CAS 把状态 3 → 1，失败返回状态冲突。
+     *
+     * @param rawPostId 帖子 ID，允许数字字符串
+     * @return 审核结果
+     */
     @Override
     public PostAuditVO restore(String rawPostId) {
         LoginUser admin = UserContext.require();

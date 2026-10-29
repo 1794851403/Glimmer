@@ -46,8 +46,9 @@ src/main/java/com/glimmer/
   `service/impl/`；接口名不带 `I` 前缀。技术组件（`JwtService`、`TokenStore`、`RateLimiter`）
   不是模块业务 API，保持具体类，避免单实现的伪抽象。
 
-- **接口注释约定**：Controller 的每个接口方法、Service 接口方法都要有 Javadoc，至少写明
-  「用途、鉴权 / 限流、请求参数、返回内容」；路径只写在 `@RequestMapping` / `@PostMapping`
+- **接口注释约定**：Controller 的每个接口方法、Service 接口与实现类的每个 public 方法都要有
+  Javadoc。接口注释写明「用途、鉴权 / 限流、请求参数、返回内容」，实现类注释侧重「关键步骤、
+  状态流转、事务 / 并发处理」，不逐字复制接口注释；路径只写在 `@RequestMapping` / `@PostMapping`
   注解里，注释不重复路径，避免改动时两处漂移。
 
 - **双 Redis**：`core`（noeviction + AOF，Token / 锁 / 秒杀 / 布隆）与 `cache`（allkeys-lru，详情 / Feed / 限流）。

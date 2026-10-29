@@ -27,6 +27,14 @@ public class TagServiceImpl implements TagService {
         this.tagMapper = tagMapper;
     }
 
+    /**
+     * 关键字去首尾空白后按名称模糊匹配，按 ID 升序返回；`limit` 默认 20、越界夹到 1~50，
+     * 直接以 {@code LIMIT n} 拼入查询，避免额外 COUNT。
+     *
+     * @param keyword 标签名关键字，可为空
+     * @param limit   返回数量，可为空
+     * @return 标签列表
+     */
     @Override
     public List<TagVO> list(String keyword, Integer limit) {
         LambdaQueryWrapper<TagDO> query = new LambdaQueryWrapper<>();

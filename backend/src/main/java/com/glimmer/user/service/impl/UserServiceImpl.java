@@ -64,11 +64,23 @@ public class UserServiceImpl implements UserService {
         this.userFollowMapper = userFollowMapper;
     }
 
+    /**
+     * 按 {@link UserContext#userId()} 查询当前用户；行不存在按登录失效处理。
+     *
+     * @return 当前用户的完整本人资料
+     */
     @Override
     public SelfProfileVO getMyProfile() {
         return SelfProfileVO.from(requireCurrentUser());
     }
 
+    /**
+     * 只把请求中出现的字段写入更新对象，未提供的字段保持 {@code null} 不参与 SET；
+     * {@code bio} 允许空字符串表示清空。更新成功后重新查询并返回完整资料。
+     *
+     * @param request 待修改字段，至少一个
+     * @return 修改后的完整本人资料
+     */
     @Override
     public SelfProfileVO updateMyProfile(UpdateProfileDTO request) {
         if (request == null || request.isEmpty()) {
@@ -89,6 +101,12 @@ public class UserServiceImpl implements UserService {
         return SelfProfileVO.from(requireCurrentUser());
     }
 
+    /**
+     * 按主键查询单个用户，只组装对外可见的简要字段。
+     *
+     * @param userId 用户 ID，可为空
+     * @return 用户简要信息；ID 为空或用户不存在时返回 {@code null}
+     */
     @Override
     public UserBriefVO getBrief(Long userId) {
         if (userId == null) {
@@ -98,6 +116,12 @@ public class UserServiceImpl implements UserService {
         return user == null ? null : UserBriefVO.from(user);
     }
 
+    /**
+     * ID 去空去重后一次批量查询，结果以用户 ID 为键返回；不存在的用户不会出现在 Map 中。
+     *
+     * @param userIds 用户 ID 集合，允许为空或重复
+     * @return 用户 ID → 简要信息
+     */
     @Override
     public Map<Long, UserBriefVO> getBriefs(Collection<Long> userIds) {
         if (userIds == null || userIds.isEmpty()) {
@@ -121,6 +145,13 @@ public class UserServiceImpl implements UserService {
         return result;
     }
 
+    /**
+     * 空参数或自己关注自己直接返回 {@code false}，否则统计关注关系行数。
+     *
+     * @param followerId 关注者
+     * @param followeeId 被关注者
+     * @return 是否已关注
+     */
     @Override
     public boolean isFollowing(Long followerId, Long followeeId) {
         if (followerId == null || followeeId == null || followerId.equals(followeeId)) {
@@ -132,6 +163,12 @@ public class UserServiceImpl implements UserService {
         return count != null && count > 0;
     }
 
+    /**
+     * 查询关注者名下的全部关系行，去重并排除自己后返回被关注用户 ID。
+     *
+     * @param followerId 关注者，可为空
+     * @return 被关注用户 ID 列表；未关注任何人时返回空列表
+     */
     @Override
     public List<Long> listFollowingIds(Long followerId) {
         if (followerId == null) {
@@ -152,6 +189,13 @@ public class UserServiceImpl implements UserService {
         return List.copyOf(followeeIds);
     }
 
+    /**
+     * 解析目标用户并禁止自关注；先查关系再插入，重复关注直接按已关注返回。
+     * 并发重复关注由唯一键兜底；真正插入时在同一事务内递增双方计数。
+     *
+     * @param rawUserId 目标用户 ID，允许数字字符串
+     * @return 目标用户 ID、关注状态与最新粉丝数
+     */
     @Override
     @Transactional
     public FollowResultVO follow(String rawUserId) {
@@ -183,6 +227,13 @@ public class UserServiceImpl implements UserService {
         return new FollowResultVO(String.valueOf(targetId), true, followerCount);
     }
 
+    /**
+     * 解析目标用户并禁止自取关；删除关注关系，只有实际删到行时才在同一事务内递减双方计数，
+     * 未关注时同样返回成功（幂等）。
+     *
+     * @param rawUserId 目标用户 ID，允许数字字符串
+     * @return 目标用户 ID、关注状态与最新粉丝数
+     */
     @Override
     @Transactional
     public FollowResultVO unfollow(String rawUserId) {
@@ -204,11 +255,29 @@ public class UserServiceImpl implements UserService {
         return new FollowResultVO(String.valueOf(targetId), false, followerCount);
     }
 
+    /**
+     * 粉丝列表：以 {@code followee_id = 目标用户} 查关注关系，其余分页与组装逻辑复用
+     * {@link #listRelations}。
+     *
+     * @param rawUserId 目标用户 ID，允许数字字符串
+     * @param rawCursor 上一页游标，可为空
+     * @param rawSize   每页数量，默认 20，越界夹到 1~50
+     * @return 粉丝简要信息游标页
+     */
     @Override
     public CursorPage<FollowUserVO> listFollowers(String rawUserId, String rawCursor, Integer rawSize) {
         return listRelations(parseUserId(rawUserId), true, rawCursor, rawSize);
     }
 
+    /**
+     * 关注列表：以 {@code follower_id = 目标用户} 查关注关系，其余分页与组装逻辑复用
+     * {@link #listRelations}。
+     *
+     * @param rawUserId 目标用户 ID，允许数字字符串
+     * @param rawCursor 上一页游标，可为空
+     * @param rawSize   每页数量，默认 20，越界夹到 1~50
+     * @return 关注用户简要信息游标页
+     */
     @Override
     public CursorPage<FollowUserVO> listFollowing(String rawUserId, String rawCursor, Integer rawSize) {
         return listRelations(parseUserId(rawUserId), false, rawCursor, rawSize);

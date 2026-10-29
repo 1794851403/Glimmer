@@ -38,6 +38,13 @@ public class FileServiceImpl implements FileService {
         this.ossStorageService = ossStorageService;
     }
 
+    /**
+     * 依次校验非空、大小与扩展名，生成 {@code images/{userId}/yyyy/MM/dd/{uuid}.{ext}} 对象名，
+     * 读取字节后交给 {@link OssStorageService} 上传；不校验 MIME / magic bytes，也不做内容审核。
+     *
+     * @param file multipart 文件
+     * @return 图片 URL、原始大小与按扩展名推导的 MIME 类型
+     */
     @Override
     public ImageUploadResponse uploadImage(MultipartFile file) {
         if (file == null || file.isEmpty()) {
