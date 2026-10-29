@@ -16,22 +16,28 @@ src/main/java/com/glimmer/
 │   ├── storage/        # OssStorageService：后端中转 OSS 上传
 │   └── web/            # TraceId、UserContext
 ├── content/
-│   ├── controller/     # files/images 图片上传；posts 发帖
+│   ├── controller/     # files/images 图片上传；posts 发帖 / 详情；tags 标签列表
 │   ├── dto/            # 入参：CreatePostDTO
-│   ├── vo/             # 出参：PostCreateVO
+│   ├── vo/             # 出参：PostCreateVO / PostDetailVO / PostSummaryVO / TagVO / ImageItemVO
 │   ├── entity/         # PostDO / PostImageDO / PostTagDO / TagDO
 │   ├── mapper/         # 四个 MyBatis-Plus Mapper
-│   └── service/        # FileService、PostService 接口
+│   └── service/        # FileService、PostService、TagService 接口
 │       └── impl/       # FileServiceImpl：最小校验 + 服务端生成对象名
-│                       # PostServiceImpl：最小校验 + 帖子/图片/标签同事务
+│                       # PostServiceImpl：发帖事务 + 详情 / 作者帖子游标列表
+│                       # TagServiceImpl：标签关键字查询 + limit 夹取
+├── feed/
+│   ├── controller/     # GET /feed/follow 关注流
+│   └── service/        # FeedService 接口
+│       └── impl/       # FeedServiceImpl：读关注关系后委托 PostService 查公开帖子
 └── user/
     ├── controller/     # auth/sms-code|login|logout；users/me GET / PATCH
     ├── dto/            # 入参：LoginRequest、SmsCodeRequest、UpdateProfileDTO
-    ├── vo/             # 出参：SelfProfileVO 等
-    ├── entity/
-    ├── mapper/
+    ├── vo/             # 出参：SelfProfileVO、UserBriefVO 等
+    ├── entity/         # UserDO / UserFollowDO
+    ├── mapper/         # UserMapper / UserFollowMapper
     └── service/        # AuthService、UserService 接口
-        └── impl/       # AuthServiceImpl：登录 / 自动注册；UserServiceImpl：本人资料
+        └── impl/       # AuthServiceImpl：登录 / 自动注册
+                        # UserServiceImpl：本人资料 / 作者摘要 / 关注关系查询
 ```
 
 - **Service 约定**：业务 Service 统一「接口 + `impl` 实现」，接口放 `service/`，实现放
@@ -126,18 +132,45 @@ curl -s -X POST http://localhost:8080/api/v1/posts \
   标签 0~5 个且必须存在；不校验图片 URL 协议与归属；
 - 当前只落 MySQL（帖子 / 图片 / 标签同一事务）；Feed 写扩散、ES 索引与 AI 打标随后续模块接入。
 
+## 验证标签与帖子详情
+
+```bash
+# 标签列表：keyword 可省略；limit 越界会自动夹到 1~50
+curl -s 'http://localhost:8080/api/v1/tags?keyword=露营&limit=20'
+
+# 帖子详情：游客可访问公开可见帖子；带 Token 时补充 isFollowingAuthor / 作者操作标记
+curl -s http://localhost:8080/api/v1/posts/<postId> \
+  -H "Authorization: Bearer <accessToken>"
+```
+
+- 详情直接查 MySQL，不接缓存；`liked` / `collected` 在互动模块接入前固定为 `false`；
+- 帖子不存在、已删除或当前不可见统一返回 `40402`，不区分非法 ID；
+- 作者本人可看到自己的 `status=2/3` 帖子与 `auditReason` / `aiTagStatus`。
+
+## 验证关注流
+
+```bash
+curl -s 'http://localhost:8080/api/v1/feed/follow?size=20' \
+  -H "Authorization: Bearer <accessToken>"
+```
+
+- 当前为读时拉取：查 `t_user_follow` 得到关注作者，再按作者集合查公开帖子；未关注任何人时返回空页；
+- 坏游标按首页处理，`size` 默认 20、越界夹到 1~50；暂不接 Redis 收件箱与热榜兜底；
+- 关注接口尚未实现，联调时可先向 `t_user_follow` 插入关注关系。
+
 ## 测试
 
 ```bash
 mvn test
 ```
 
-当前 31 个单元测试：JWT、`UserServiceImpl`、`FileServiceImpl`、`PostServiceImpl`；
+当前 48 个单元测试：JWT、`UserServiceImpl`、`FileServiceImpl`、`PostServiceImpl`、`TagServiceImpl`、`FeedServiceImpl`；
 接 Testcontainers 后补 MySQL / Redis / RabbitMQ / OSS 集成测试与 ArchUnit 模块边界测试。
 
 ## 待办
 
-- Feed / 帖子详情 / 编辑删除纵向链路；
+- 帖子编辑 / 删除 / 重新提交；关注 / 取关接口；
+- Feed 写扩散、Redis 收件箱、热榜与推荐流；
 - OSS 直传（预签名 URL）、magic bytes 校验、图片内容审核（演进）；
 - DeepSeek / ES 的配置与实现（按 M1/M2）；
 - ArchUnit、Testcontainers、CI。

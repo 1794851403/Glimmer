@@ -2,8 +2,8 @@
   "openapi": "3.0.3",
   "info": {
     "title": "微光 Glimmer API",
-    "version": "1.8.3",
-    "description": "微光 Glimmer 的 OpenAPI 3.0 契约，与 `docs/04-接口设计文档.md` v1.12（已定稿）一致，可直接导入 Apifox。\n\n**通用约定**\n- Base URL：本地 `http://localhost:8080`；后端在 VM 时 `http://192.168.157.129:8080`；生产示例 `https://api.glimmer.example`；业务接口统一 `/api/v1`，WebSocket 为 `/ws/danmaku`。\n- 鉴权：单 JWT（HS256，7 天）+ Redis 白名单，单用户单 Token；默认拒绝，仅白名单按「方法 + 路径」精确放行。全局 `bearerAuth`，白名单接口 `security: []`，可选登录接口同时声明 Token 与匿名。\n- `/api/v1/admin/**` 额外要求 `role=ADMIN`，OpenAPI 无法表达角色，已在各管理端接口 description 中注明。\n- ID 一律字符串（BIGINT 防 JS 精度丢失）；时间为 epoch 毫秒整数；金额为字符串十进制；布尔为 true/false。\n- 响应信封：`{ code, message, data, traceId }`；HTTP 状态与业务 code 同时表达语义。\n- 用户端列表用游标分页 `CursorPage<T>`；管理端列表用 PageHelper 页码分页 `PageResult<T>`。\n- AI 流式接口为 `text/event-stream`（SSE），禁止使用原生 EventSource 自动重连；弹幕为 WebSocket 帧协议，发送者不提前渲染、不做 ACK。\n\n**错误码**：40001~40004 参数 / 内容错误；40101 / 40102 未认证 / 过期；40301~40303 权限；40401~40403 不存在；40901/40903/40904 状态冲突；42901 限流；43001~43005 秒杀；44001~44004 AI；45001~45003 上传；50000 / 50301 服务端与依赖。",
+    "version": "1.8.4",
+    "description": "微光 Glimmer 的 OpenAPI 3.0 契约，与 `docs/04-接口设计文档.md` v1.13（已定稿）一致，可直接导入 Apifox。\n\n**通用约定**\n- Base URL：本地 `http://localhost:8080`；后端在 VM 时 `http://192.168.157.129:8080`；生产示例 `https://api.glimmer.example`；业务接口统一 `/api/v1`，WebSocket 为 `/ws/danmaku`。\n- 鉴权：单 JWT（HS256，7 天）+ Redis 白名单，单用户单 Token；默认拒绝，仅白名单按「方法 + 路径」精确放行。全局 `bearerAuth`，白名单接口 `security: []`，可选登录接口同时声明 Token 与匿名。\n- `/api/v1/admin/**` 额外要求 `role=ADMIN`，OpenAPI 无法表达角色，已在各管理端接口 description 中注明。\n- ID 一律字符串（BIGINT 防 JS 精度丢失）；时间为 epoch 毫秒整数；金额为字符串十进制；布尔为 true/false。\n- 响应信封：`{ code, message, data, traceId }`；HTTP 状态与业务 code 同时表达语义。\n- 用户端列表用游标分页 `CursorPage<T>`；管理端列表用 PageHelper 页码分页 `PageResult<T>`。\n- AI 流式接口为 `text/event-stream`（SSE），禁止使用原生 EventSource 自动重连；弹幕为 WebSocket 帧协议，发送者不提前渲染、不做 ACK。\n\n**错误码**：40001~40004 参数 / 内容错误；40101 / 40102 未认证 / 过期；40301~40303 权限；40401~40403 不存在；40901/40903/40904 状态冲突；42901 限流；43001~43005 秒杀；44001~44004 AI；45001~45003 上传；50000 / 50301 服务端与依赖。",
     "contact": {
       "name": "Glimmer 项目"
     },
@@ -755,7 +755,7 @@
             "name": "cursor",
             "in": "query",
             "required": false,
-            "description": "上一页返回的 nextCursor；首页不传；对客户端不透明",
+            "description": "上一页返回的 nextCursor；首页不传；对客户端不透明；坏游标按首页处理",
             "schema": {
               "type": "string"
             }
@@ -764,7 +764,7 @@
             "name": "size",
             "in": "query",
             "required": false,
-            "description": "每页数量，1~50，默认 20",
+            "description": "每页数量，默认 20；越界自动夹到 1~50，不报错",
             "schema": {
               "type": "integer",
               "format": "int32",
@@ -1145,7 +1145,7 @@
             "name": "cursor",
             "in": "query",
             "required": false,
-            "description": "上一页返回的 nextCursor；首页不传；对客户端不透明",
+            "description": "上一页返回的 nextCursor；首页不传；对客户端不透明；坏游标按首页处理",
             "schema": {
               "type": "string"
             }
@@ -1154,7 +1154,7 @@
             "name": "size",
             "in": "query",
             "required": false,
-            "description": "每页数量，1~50，默认 20",
+            "description": "每页数量，默认 20；越界自动夹到 1~50，不报错",
             "schema": {
               "type": "integer",
               "format": "int32",
@@ -1256,7 +1256,7 @@
             "name": "cursor",
             "in": "query",
             "required": false,
-            "description": "上一页返回的 nextCursor；首页不传；对客户端不透明",
+            "description": "上一页返回的 nextCursor；首页不传；对客户端不透明；坏游标按首页处理",
             "schema": {
               "type": "string"
             }
@@ -1265,7 +1265,7 @@
             "name": "size",
             "in": "query",
             "required": false,
-            "description": "每页数量，1~50，默认 20",
+            "description": "每页数量，默认 20；越界自动夹到 1~50，不报错",
             "schema": {
               "type": "integer",
               "format": "int32",
@@ -1373,7 +1373,7 @@
             "name": "cursor",
             "in": "query",
             "required": false,
-            "description": "上一页返回的 nextCursor；首页不传；对客户端不透明",
+            "description": "上一页返回的 nextCursor；首页不传；对客户端不透明；坏游标按首页处理",
             "schema": {
               "type": "string"
             }
@@ -1382,7 +1382,7 @@
             "name": "size",
             "in": "query",
             "required": false,
-            "description": "每页数量，1~50，默认 20",
+            "description": "每页数量，默认 20；越界自动夹到 1~50，不报错",
             "schema": {
               "type": "integer",
               "format": "int32",
@@ -1505,7 +1505,7 @@
             "name": "cursor",
             "in": "query",
             "required": false,
-            "description": "上一页返回的 nextCursor；首页不传；对客户端不透明",
+            "description": "上一页返回的 nextCursor；首页不传；对客户端不透明；坏游标按首页处理",
             "schema": {
               "type": "string"
             }
@@ -1514,7 +1514,7 @@
             "name": "size",
             "in": "query",
             "required": false,
-            "description": "每页数量，1~50，默认 20",
+            "description": "每页数量，默认 20；越界自动夹到 1~50，不报错",
             "schema": {
               "type": "integer",
               "format": "int32",
@@ -1632,7 +1632,7 @@
             "name": "cursor",
             "in": "query",
             "required": false,
-            "description": "上一页返回的 nextCursor；首页不传；对客户端不透明",
+            "description": "上一页返回的 nextCursor；首页不传；对客户端不透明；坏游标按首页处理",
             "schema": {
               "type": "string"
             }
@@ -1641,7 +1641,7 @@
             "name": "size",
             "in": "query",
             "required": false,
-            "description": "每页数量，1~50，默认 20",
+            "description": "每页数量，默认 20；越界自动夹到 1~50，不报错",
             "schema": {
               "type": "integer",
               "format": "int32",
@@ -2093,7 +2093,7 @@
             "name": "cursor",
             "in": "query",
             "required": false,
-            "description": "上一页返回的 nextCursor；首页不传；对客户端不透明",
+            "description": "上一页返回的 nextCursor；首页不传；对客户端不透明；坏游标按首页处理",
             "schema": {
               "type": "string"
             }
@@ -2102,7 +2102,7 @@
             "name": "size",
             "in": "query",
             "required": false,
-            "description": "每页数量，1~50，默认 20",
+            "description": "每页数量，默认 20；越界自动夹到 1~50，不报错",
             "schema": {
               "type": "integer",
               "format": "int32",
@@ -2199,7 +2199,7 @@
           "帖子"
         ],
         "summary": "帖子详情",
-        "description": "游客 / 其他用户只能看公开可见帖子（`status IN (0,1) AND is_deleted=0`）；作者本人可看 0/1/2/3；管理员可看未删除帖子。公开详情不返回 `auditReason` 与 `aiTagStatus`，操作标记仅作者本人有意义。\n\n鉴权：可选登录；匿名可访问，带合法 Token 时补充个性化字段。",
+        "description": "游客 / 其他用户只能看公开可见帖子（`status IN (0,1) AND is_deleted=0`）；作者本人可看 0/1/2/3；管理员可看未删除帖子。公开详情不返回 `auditReason` 与 `aiTagStatus`，操作标记仅作者本人有意义。\n\nMVP 实现：直接查 MySQL，不接详情缓存；`liked` / `collected` 在互动模块接入前固定为 `false`；登录用户查看他人帖子时实时查询关注关系返回 `isFollowingAuthor`；`postId` 非法或帖子不可见统一返回 `40402`。\n\n鉴权：可选登录；匿名可访问，带合法 Token 时补充个性化字段。",
         "operationId": "getPostDetail",
         "security": [
           {
@@ -2212,7 +2212,7 @@
             "name": "postId",
             "in": "path",
             "required": true,
-            "description": "帖子 ID",
+            "description": "帖子 ID；空、非数字或 ≤0 与不存在 / 不可见统一按 40402 处理",
             "schema": {
               "type": "string"
             }
@@ -2815,7 +2815,7 @@
           "Feed"
         ],
         "summary": "关注流",
-        "description": "返回当前用户关注的作者（不含自己）的公开可见帖子，按 `publishedAt DESC, id DESC`。推拉结合：普通作者写扩散到粉丝收件箱，大 V 走拉模式；读时统一过滤 `status IN (0,1) AND is_deleted=0`。\n\n鉴权：登录。",
+        "description": "返回当前用户关注的作者（不含自己）的公开可见帖子，按 `publishedAt DESC, id DESC`。\n\nMVP 实现：纯读时拉取，先查关注关系，再按作者集合查 MySQL；不接 Redis 收件箱、写扩散与热榜兜底，未关注任何人时返回空页。读时过滤 `status IN (0,1) AND is_deleted=0`；坏游标按首页处理，`size` 默认 20、越界夹到 1~50。\n\n鉴权：登录。",
         "operationId": "getFollowFeed",
         "security": [
           {
@@ -2827,7 +2827,7 @@
             "name": "cursor",
             "in": "query",
             "required": false,
-            "description": "上一页返回的 nextCursor；首页不传；对客户端不透明",
+            "description": "上一页返回的 nextCursor；首页不传；对客户端不透明；坏游标按首页处理",
             "schema": {
               "type": "string"
             }
@@ -2836,7 +2836,7 @@
             "name": "size",
             "in": "query",
             "required": false,
-            "description": "每页数量，1~50，默认 20",
+            "description": "每页数量，默认 20；越界自动夹到 1~50，不报错",
             "schema": {
               "type": "integer",
               "format": "int32",
@@ -2955,7 +2955,7 @@
             "name": "cursor",
             "in": "query",
             "required": false,
-            "description": "上一页返回的 nextCursor；首页不传；对客户端不透明",
+            "description": "上一页返回的 nextCursor；首页不传；对客户端不透明；坏游标按首页处理",
             "schema": {
               "type": "string"
             }
@@ -2964,7 +2964,7 @@
             "name": "size",
             "in": "query",
             "required": false,
-            "description": "每页数量，1~50，默认 20",
+            "description": "每页数量，默认 20；越界自动夹到 1~50，不报错",
             "schema": {
               "type": "integer",
               "format": "int32",
@@ -3048,7 +3048,7 @@
             "name": "cursor",
             "in": "query",
             "required": false,
-            "description": "上一页返回的 nextCursor；首页不传；对客户端不透明",
+            "description": "上一页返回的 nextCursor；首页不传；对客户端不透明；坏游标按首页处理",
             "schema": {
               "type": "string"
             }
@@ -3057,7 +3057,7 @@
             "name": "size",
             "in": "query",
             "required": false,
-            "description": "每页数量，1~50，默认 20",
+            "description": "每页数量，默认 20；越界自动夹到 1~50，不报错",
             "schema": {
               "type": "integer",
               "format": "int32",
@@ -3169,7 +3169,7 @@
             "name": "cursor",
             "in": "query",
             "required": false,
-            "description": "上一页返回的 nextCursor；首页不传；对客户端不透明",
+            "description": "上一页返回的 nextCursor；首页不传；对客户端不透明；坏游标按首页处理",
             "schema": {
               "type": "string"
             }
@@ -3178,7 +3178,7 @@
             "name": "size",
             "in": "query",
             "required": false,
-            "description": "每页数量，1~50，默认 20",
+            "description": "每页数量，默认 20；越界自动夹到 1~50，不报错",
             "schema": {
               "type": "integer",
               "format": "int32",
@@ -3281,7 +3281,7 @@
           "标签"
         ],
         "summary": "标签列表",
-        "description": "`keyword` 可选，按名称前缀 / 包含匹配；`limit` 1~50，默认 20。\n\n鉴权：匿名（白名单）。",
+        "description": "`keyword` 可选，去首尾空白后按名称包含匹配，空白视为不筛选；`limit` 默认 20，越界自动夹到 1~50，不报错；按标签 ID 升序返回。MVP 直接查 MySQL，不加缓存。\n\n鉴权：匿名（白名单）。",
         "operationId": "listTags",
         "security": [],
         "parameters": [
@@ -3289,7 +3289,7 @@
             "name": "keyword",
             "in": "query",
             "required": false,
-            "description": "标签名关键字",
+            "description": "标签名关键字；去首尾空白后包含匹配，空白视为不筛选",
             "schema": {
               "type": "string"
             }
@@ -4076,7 +4076,7 @@
             "name": "cursor",
             "in": "query",
             "required": false,
-            "description": "上一页返回的 nextCursor；首页不传；对客户端不透明",
+            "description": "上一页返回的 nextCursor；首页不传；对客户端不透明；坏游标按首页处理",
             "schema": {
               "type": "string"
             }
@@ -4085,7 +4085,7 @@
             "name": "size",
             "in": "query",
             "required": false,
-            "description": "每页数量，1~50，默认 20",
+            "description": "每页数量，默认 20；越界自动夹到 1~50，不报错",
             "schema": {
               "type": "integer",
               "format": "int32",
@@ -4214,7 +4214,7 @@
             "name": "cursor",
             "in": "query",
             "required": false,
-            "description": "上一页返回的 nextCursor；首页不传；对客户端不透明",
+            "description": "上一页返回的 nextCursor；首页不传；对客户端不透明；坏游标按首页处理",
             "schema": {
               "type": "string"
             }
@@ -4223,7 +4223,7 @@
             "name": "size",
             "in": "query",
             "required": false,
-            "description": "每页数量，1~50，默认 20",
+            "description": "每页数量，默认 20；越界自动夹到 1~50，不报错",
             "schema": {
               "type": "integer",
               "format": "int32",
@@ -4939,7 +4939,7 @@
             "name": "cursor",
             "in": "query",
             "required": false,
-            "description": "上一页返回的 nextCursor；首页不传；对客户端不透明",
+            "description": "上一页返回的 nextCursor；首页不传；对客户端不透明；坏游标按首页处理",
             "schema": {
               "type": "string"
             }
@@ -4948,7 +4948,7 @@
             "name": "size",
             "in": "query",
             "required": false,
-            "description": "每页数量，1~50，默认 20",
+            "description": "每页数量，默认 20；越界自动夹到 1~50，不报错",
             "schema": {
               "type": "integer",
               "format": "int32",
@@ -5794,7 +5794,7 @@
             "name": "cursor",
             "in": "query",
             "required": false,
-            "description": "上一页返回的 nextCursor；首页不传；对客户端不透明",
+            "description": "上一页返回的 nextCursor；首页不传；对客户端不透明；坏游标按首页处理",
             "schema": {
               "type": "string"
             }
@@ -5803,7 +5803,7 @@
             "name": "size",
             "in": "query",
             "required": false,
-            "description": "每页数量，1~50，默认 20",
+            "description": "每页数量，默认 20；越界自动夹到 1~50，不报错",
             "schema": {
               "type": "integer",
               "format": "int32",

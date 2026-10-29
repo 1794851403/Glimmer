@@ -1,16 +1,26 @@
 package com.glimmer.user.service.impl;
 
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.glimmer.common.exception.BizException;
 import com.glimmer.common.exception.ErrorCode;
 import com.glimmer.common.web.UserContext;
 import com.glimmer.user.dto.UpdateProfileDTO;
-import com.glimmer.user.vo.SelfProfileVO;
 import com.glimmer.user.entity.UserDO;
+import com.glimmer.user.entity.UserFollowDO;
+import com.glimmer.user.mapper.UserFollowMapper;
 import com.glimmer.user.mapper.UserMapper;
 import com.glimmer.user.service.UserService;
+import com.glimmer.user.vo.SelfProfileVO;
+import com.glimmer.user.vo.UserBriefVO;
 import org.springframework.stereotype.Service;
 
 import java.net.URI;
+import java.util.Collection;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
 
 /**
  * 本人资料查询与修改实现。
@@ -27,9 +37,11 @@ public class UserServiceImpl implements UserService {
     private static final int BIO_MAX = 200;
 
     private final UserMapper userMapper;
+    private final UserFollowMapper userFollowMapper;
 
-    public UserServiceImpl(UserMapper userMapper) {
+    public UserServiceImpl(UserMapper userMapper, UserFollowMapper userFollowMapper) {
         this.userMapper = userMapper;
+        this.userFollowMapper = userFollowMapper;
     }
 
     @Override
@@ -55,6 +67,69 @@ public class UserServiceImpl implements UserService {
             throw new BizException(ErrorCode.UNAUTHENTICATED);
         }
         return SelfProfileVO.from(requireCurrentUser());
+    }
+
+    @Override
+    public UserBriefVO getBrief(Long userId) {
+        if (userId == null) {
+            return null;
+        }
+        UserDO user = userMapper.selectById(userId);
+        return user == null ? null : UserBriefVO.from(user);
+    }
+
+    @Override
+    public Map<Long, UserBriefVO> getBriefs(Collection<Long> userIds) {
+        if (userIds == null || userIds.isEmpty()) {
+            return Map.of();
+        }
+        List<Long> ids = userIds.stream()
+                .filter(Objects::nonNull)
+                .distinct()
+                .toList();
+        if (ids.isEmpty()) {
+            return Map.of();
+        }
+        List<UserDO> users = userMapper.selectBatchIds(ids);
+        if (users == null || users.isEmpty()) {
+            return Map.of();
+        }
+        Map<Long, UserBriefVO> result = new LinkedHashMap<>();
+        for (UserDO user : users) {
+            result.put(user.getId(), UserBriefVO.from(user));
+        }
+        return result;
+    }
+
+    @Override
+    public boolean isFollowing(Long followerId, Long followeeId) {
+        if (followerId == null || followeeId == null || followerId.equals(followeeId)) {
+            return false;
+        }
+        Long count = userFollowMapper.selectCount(new LambdaQueryWrapper<UserFollowDO>()
+                .eq(UserFollowDO::getFollowerId, followerId)
+                .eq(UserFollowDO::getFolloweeId, followeeId));
+        return count != null && count > 0;
+    }
+
+    @Override
+    public List<Long> listFollowingIds(Long followerId) {
+        if (followerId == null) {
+            return List.of();
+        }
+        List<UserFollowDO> rows = userFollowMapper.selectList(new LambdaQueryWrapper<UserFollowDO>()
+                .eq(UserFollowDO::getFollowerId, followerId));
+        if (rows == null || rows.isEmpty()) {
+            return List.of();
+        }
+        LinkedHashSet<Long> followeeIds = new LinkedHashSet<>();
+        for (UserFollowDO row : rows) {
+            Long followeeId = row.getFolloweeId();
+            if (followeeId != null && !followeeId.equals(followerId)) {
+                followeeIds.add(followeeId);
+            }
+        }
+        return List.copyOf(followeeIds);
     }
 
     private UserDO requireCurrentUser() {
