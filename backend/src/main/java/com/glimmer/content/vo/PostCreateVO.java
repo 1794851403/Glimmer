@@ -40,6 +40,20 @@ public record PostCreateVO(
         );
     }
 
+    /**
+     * 审核拒绝后直接重提的响应。
+     */
+    public static PostCreateVO resubmit(PostDO post) {
+        int status = post.getStatus() == null ? 0 : post.getStatus();
+        return new PostCreateVO(
+                String.valueOf(post.getId()),
+                status,
+                statusText(status),
+                epochMillis(post.getPublishedAt()),
+                "已重新发布，等待审核"
+        );
+    }
+
     private static String statusText(int status) {
         return switch (status) {
             case 0 -> "已发布待审核";

@@ -1,6 +1,7 @@
 package com.glimmer.content.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.glimmer.common.api.CursorPage;
 import com.glimmer.common.exception.BizException;
 import com.glimmer.common.exception.ErrorCode;
@@ -17,6 +18,7 @@ import com.glimmer.content.mapper.PostTagMapper;
 import com.glimmer.content.mapper.TagMapper;
 import com.glimmer.content.service.PostService;
 import com.glimmer.content.vo.ImageItemVO;
+import com.glimmer.content.vo.PostAuditVO;
 import com.glimmer.content.vo.PostCreateVO;
 import com.glimmer.content.vo.PostDetailVO;
 import com.glimmer.content.vo.PostSummaryVO;
@@ -55,6 +57,7 @@ public class PostServiceImpl implements PostService {
     private static final int IMAGE_MAX = 9;
     private static final int IMAGE_URL_MAX = 512;
     private static final int TAG_MAX = 5;
+    private static final int AUDIT_REASON_MAX = 200;
 
     private static final int DEFAULT_PAGE_SIZE = 20;
     private static final int MAX_PAGE_SIZE = 50;
@@ -104,21 +107,8 @@ public class PostServiceImpl implements PostService {
         post.setLastInteractionAt(now);
         postMapper.insert(post);
 
-        for (int i = 0; i < imageUrls.size(); i++) {
-            PostImageDO image = new PostImageDO();
-            image.setPostId(post.getId());
-            image.setUrl(imageUrls.get(i));
-            image.setSortOrder(i);
-            postImageMapper.insert(image);
-        }
-
-        for (Long tagId : tagIds) {
-            PostTagDO postTag = new PostTagDO();
-            postTag.setPostId(post.getId());
-            postTag.setTagId(tagId);
-            postTag.setSource(0);
-            postTagMapper.insert(postTag);
-        }
+        insertImages(post.getId(), imageUrls);
+        insertTags(post.getId(), tagIds);
 
         return PostCreateVO.from(post);
     }
@@ -217,6 +207,208 @@ public class PostServiceImpl implements PostService {
         List<PostSummaryVO> items = toSummaries(rows);
         String nextCursor = hasMore ? encodeCursor(rows.get(rows.size() - 1)) : null;
         return new CursorPage<>(items, nextCursor, hasMore);
+    }
+
+    @Override
+    @Transactional
+    public PostDetailVO update(String rawPostId, CreatePostDTO request) {
+        PostDO post = requireAuthorPost(rawPostId);
+        if (isDeleted(post)) {
+            throw notVisible();
+        }
+        if (statusOf(post) == 3) {
+            throw new BizException(ErrorCode.STATE_CONFLICT, "已下架帖子不可编辑");
+        }
+        if (request == null) {
+            throw new BizException(ErrorCode.INVALID_PARAM, "请求体不能为空");
+        }
+
+        String title = normalizeTitle(request.title());
+        String content = normalizeContent(request.content());
+        List<String> imageUrls = normalizeImages(request.imageUrls());
+        List<Long> tagIds = normalizeTags(request.tagIds());
+
+        postMapper.update(null, new LambdaUpdateWrapper<PostDO>()
+                .eq(PostDO::getId, post.getId())
+                .set(PostDO::getTitle, title)
+                .set(PostDO::getContent, content)
+                .set(PostDO::getStatus, 0)
+                .set(PostDO::getAuditReason, null)
+                .set(PostDO::getAuditedAt, null)
+                .set(PostDO::getAuditedBy, null));
+
+        postImageMapper.delete(new LambdaQueryWrapper<PostImageDO>()
+                .eq(PostImageDO::getPostId, post.getId()));
+        postTagMapper.delete(new LambdaQueryWrapper<PostTagDO>()
+                .eq(PostTagDO::getPostId, post.getId()));
+        insertImages(post.getId(), imageUrls);
+        insertTags(post.getId(), tagIds);
+
+        return getDetail(String.valueOf(post.getId()));
+    }
+
+    @Override
+    public void delete(String rawPostId) {
+        PostDO post = requireAuthorPost(rawPostId);
+        if (isDeleted(post)) {
+            return;
+        }
+        postMapper.update(null, new LambdaUpdateWrapper<PostDO>()
+                .eq(PostDO::getId, post.getId())
+                .set(PostDO::getIsDeleted, 1));
+    }
+
+    @Override
+    public PostCreateVO resubmit(String rawPostId) {
+        PostDO post = requireAuthorPost(rawPostId);
+        if (isDeleted(post)) {
+            throw notVisible();
+        }
+        if (statusOf(post) != 2) {
+            throw new BizException(ErrorCode.STATE_CONFLICT, "仅审核拒绝的帖子可重新提交");
+        }
+        postMapper.update(null, new LambdaUpdateWrapper<PostDO>()
+                .eq(PostDO::getId, post.getId())
+                .set(PostDO::getStatus, 0)
+                .set(PostDO::getAuditReason, null)
+                .set(PostDO::getAuditedAt, null)
+                .set(PostDO::getAuditedBy, null));
+        post.setStatus(0);
+        post.setAuditReason(null);
+        return PostCreateVO.resubmit(post);
+    }
+
+    @Override
+    public PostAuditVO approve(String rawPostId) {
+        LoginUser admin = UserContext.require();
+        PostDO post = requireAuditablePost(rawPostId);
+        requireNotSelfAudit(admin, post);
+
+        LocalDateTime now = LocalDateTime.now();
+        int updated = auditUpdate(post.getId(), List.of(0), 1, null, now, admin.userId());
+        if (updated == 0) {
+            PostDO current = postMapper.selectById(post.getId());
+            if (current != null && statusOf(current) == 1) {
+                return PostAuditVO.from(current);
+            }
+            throw new BizException(ErrorCode.AUDIT_STATE_CHANGED);
+        }
+        return PostAuditVO.of(post, 1, null, now, admin.userId());
+    }
+
+    @Override
+    public PostAuditVO reject(String rawPostId, String rawReason) {
+        LoginUser admin = UserContext.require();
+        PostDO post = requireAuditablePost(rawPostId);
+        requireNotSelfAudit(admin, post);
+        String reason = normalizeAuditReason(rawReason);
+
+        LocalDateTime now = LocalDateTime.now();
+        int updated = auditUpdate(post.getId(), List.of(0), 2, reason, now, admin.userId());
+        if (updated == 0) {
+            throw new BizException(ErrorCode.AUDIT_STATE_CHANGED);
+        }
+        return PostAuditVO.of(post, 2, reason, now, admin.userId());
+    }
+
+    @Override
+    public PostAuditVO takedown(String rawPostId, String rawReason) {
+        LoginUser admin = UserContext.require();
+        PostDO post = requireAuditablePost(rawPostId);
+        requireNotSelfAudit(admin, post);
+        String reason = normalizeAuditReason(rawReason);
+
+        LocalDateTime now = LocalDateTime.now();
+        int updated = auditUpdate(post.getId(), List.of(0, 1), 3, reason, now, admin.userId());
+        if (updated == 0) {
+            throw new BizException(ErrorCode.AUDIT_STATE_CHANGED);
+        }
+        return PostAuditVO.of(post, 3, reason, now, admin.userId());
+    }
+
+    @Override
+    public PostAuditVO restore(String rawPostId) {
+        LoginUser admin = UserContext.require();
+        PostDO post = requireAuditablePost(rawPostId);
+        requireNotSelfAudit(admin, post);
+
+        LocalDateTime now = LocalDateTime.now();
+        int updated = auditUpdate(post.getId(), List.of(3), 1, null, now, admin.userId());
+        if (updated == 0) {
+            throw new BizException(ErrorCode.AUDIT_STATE_CHANGED);
+        }
+        return PostAuditVO.of(post, 1, null, now, admin.userId());
+    }
+
+    private int auditUpdate(Long postId, List<Integer> fromStatuses, int toStatus, String reason,
+                            LocalDateTime auditedAt, Long adminId) {
+        return postMapper.update(null, new LambdaUpdateWrapper<PostDO>()
+                .eq(PostDO::getId, postId)
+                .eq(PostDO::getIsDeleted, 0)
+                .in(PostDO::getStatus, fromStatuses)
+                .set(PostDO::getStatus, toStatus)
+                .set(PostDO::getAuditReason, reason)
+                .set(PostDO::getAuditedAt, auditedAt)
+                .set(PostDO::getAuditedBy, adminId));
+    }
+
+    private PostDO requireAuthorPost(String rawPostId) {
+        PostDO post = postMapper.selectById(parsePostId(rawPostId));
+        if (post == null) {
+            throw notVisible();
+        }
+        LoginUser user = UserContext.require();
+        if (!Objects.equals(user.userId(), post.getUserId())) {
+            throw new BizException(ErrorCode.FORBIDDEN);
+        }
+        return post;
+    }
+
+    private PostDO requireAuditablePost(String rawPostId) {
+        Long postId = parseAdminPostId(rawPostId);
+        PostDO post = postMapper.selectById(postId);
+        if (post == null || isDeleted(post)) {
+            throw new BizException(ErrorCode.NOT_FOUND);
+        }
+        return post;
+    }
+
+    private void requireNotSelfAudit(LoginUser admin, PostDO post) {
+        if (Objects.equals(admin.userId(), post.getUserId())) {
+            throw new BizException(ErrorCode.AUDIT_SELF_FORBIDDEN);
+        }
+    }
+
+    private String normalizeAuditReason(String raw) {
+        if (!StringUtils.hasText(raw)) {
+            throw new BizException(ErrorCode.INVALID_PARAM, "审核原因不能为空");
+        }
+        String value = raw.strip();
+        if (codePointLength(value) > AUDIT_REASON_MAX) {
+            throw new BizException(ErrorCode.INVALID_PARAM,
+                    "审核原因不能超过 " + AUDIT_REASON_MAX + " 个字符");
+        }
+        return value;
+    }
+
+    private void insertImages(Long postId, List<String> imageUrls) {
+        for (int i = 0; i < imageUrls.size(); i++) {
+            PostImageDO image = new PostImageDO();
+            image.setPostId(postId);
+            image.setUrl(imageUrls.get(i));
+            image.setSortOrder(i);
+            postImageMapper.insert(image);
+        }
+    }
+
+    private void insertTags(Long postId, List<Long> tagIds) {
+        for (Long tagId : tagIds) {
+            PostTagDO postTag = new PostTagDO();
+            postTag.setPostId(postId);
+            postTag.setTagId(tagId);
+            postTag.setSource(0);
+            postTagMapper.insert(postTag);
+        }
     }
 
     private List<PostSummaryVO> toSummaries(List<PostDO> posts) {
@@ -435,6 +627,21 @@ public class PostServiceImpl implements PostService {
             return id;
         } catch (NumberFormatException e) {
             throw notVisible();
+        }
+    }
+
+    private Long parseAdminPostId(String raw) {
+        if (!StringUtils.hasText(raw)) {
+            throw new BizException(ErrorCode.NOT_FOUND);
+        }
+        try {
+            long id = Long.parseLong(raw.strip());
+            if (id <= 0) {
+                throw new BizException(ErrorCode.NOT_FOUND);
+            }
+            return id;
+        } catch (NumberFormatException e) {
+            throw new BizException(ErrorCode.NOT_FOUND);
         }
     }
 

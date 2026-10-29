@@ -1,6 +1,6 @@
 # Apifox 导入说明
 
-`glimmer-openapi.json` 是按 [04-接口设计文档.md](../04-接口设计文档.md) v1.13 对齐的 OpenAPI 3.0 契约（`info.version = 1.8.4`），覆盖接口总览中的 **63 个接口**（54 条路径，部分路径同时有 POST / DELETE）。1.8.4 同步标签列表、帖子详情、关注流的 MVP 落地口径：坏游标按首页、`limit` / `size` 越界夹取、关注流纯读时拉取、详情 `liked` / `collected` 暂为 `false`。
+`glimmer-openapi.json` 是按 [04-接口设计文档.md](../04-接口设计文档.md) v1.14 对齐的 OpenAPI 3.0 契约（`info.version = 1.8.5`），覆盖接口总览中的 **63 个接口**（54 条路径，部分路径同时有 POST / DELETE）。1.8.5 同步关注 / 取关、粉丝 / 关注列表、帖子编辑 / 删除 / 重提与管理端审核状态流转的 MVP 口径：关系与计数在 MySQL 事务内维护、游标坏值按首页、`size` 越界夹取、管理端审核统一返回 `PostAudit`，缓存 / ES / Feed 写扩散随后续模块接入。
 
 ## 导入步骤
 
@@ -18,7 +18,7 @@
 
 1. `POST /api/v1/auth/sms-code` → 从服务端日志或 `debugCode` 获取验证码（`local` / `dev` profile）。
 2. `POST /api/v1/auth/login` → 将 `accessToken` 写入环境变量。
-3. 上传图片 → 发帖 → 管理端审核 → Feed / 搜索 / 互动。
+3. 上传图片 → 发帖 → 编辑 / 重提 → 关注 / 取关 → 关注流 → 管理端审核（approve / reject / takedown / restore）→ Feed / 搜索 / 互动。
 4. 秒杀：管理端创建活动 → 发布 → 抢购 → `GET /seckill/activities/{activityId}/my-order` 轮询 → 模拟支付。
 
 ## 契约约定

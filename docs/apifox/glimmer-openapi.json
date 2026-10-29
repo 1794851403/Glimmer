@@ -2,8 +2,8 @@
   "openapi": "3.0.3",
   "info": {
     "title": "微光 Glimmer API",
-    "version": "1.8.4",
-    "description": "微光 Glimmer 的 OpenAPI 3.0 契约，与 `docs/04-接口设计文档.md` v1.13（已定稿）一致，可直接导入 Apifox。\n\n**通用约定**\n- Base URL：本地 `http://localhost:8080`；后端在 VM 时 `http://192.168.157.129:8080`；生产示例 `https://api.glimmer.example`；业务接口统一 `/api/v1`，WebSocket 为 `/ws/danmaku`。\n- 鉴权：单 JWT（HS256，7 天）+ Redis 白名单，单用户单 Token；默认拒绝，仅白名单按「方法 + 路径」精确放行。全局 `bearerAuth`，白名单接口 `security: []`，可选登录接口同时声明 Token 与匿名。\n- `/api/v1/admin/**` 额外要求 `role=ADMIN`，OpenAPI 无法表达角色，已在各管理端接口 description 中注明。\n- ID 一律字符串（BIGINT 防 JS 精度丢失）；时间为 epoch 毫秒整数；金额为字符串十进制；布尔为 true/false。\n- 响应信封：`{ code, message, data, traceId }`；HTTP 状态与业务 code 同时表达语义。\n- 用户端列表用游标分页 `CursorPage<T>`；管理端列表用 PageHelper 页码分页 `PageResult<T>`。\n- AI 流式接口为 `text/event-stream`（SSE），禁止使用原生 EventSource 自动重连；弹幕为 WebSocket 帧协议，发送者不提前渲染、不做 ACK。\n\n**错误码**：40001~40004 参数 / 内容错误；40101 / 40102 未认证 / 过期；40301~40303 权限；40401~40403 不存在；40901/40903/40904 状态冲突；42901 限流；43001~43005 秒杀；44001~44004 AI；45001~45003 上传；50000 / 50301 服务端与依赖。",
+    "version": "1.8.5",
+    "description": "微光 Glimmer 的 OpenAPI 3.0 契约，与 `docs/04-接口设计文档.md` v1.14（已定稿）一致，可直接导入 Apifox。\n\n**通用约定**\n- Base URL：本地 `http://localhost:8080`；后端在 VM 时 `http://192.168.157.129:8080`；生产示例 `https://api.glimmer.example`；业务接口统一 `/api/v1`，WebSocket 为 `/ws/danmaku`。\n- 鉴权：单 JWT（HS256，7 天）+ Redis 白名单，单用户单 Token；默认拒绝，仅白名单按「方法 + 路径」精确放行。全局 `bearerAuth`，白名单接口 `security: []`，可选登录接口同时声明 Token 与匿名。\n- `/api/v1/admin/**` 额外要求 `role=ADMIN`，OpenAPI 无法表达角色，已在各管理端接口 description 中注明。\n- ID 一律字符串（BIGINT 防 JS 精度丢失）；时间为 epoch 毫秒整数；金额为字符串十进制；布尔为 true/false。\n- 响应信封：`{ code, message, data, traceId }`；HTTP 状态与业务 code 同时表达语义。\n- 用户端列表用游标分页 `CursorPage<T>`；管理端列表用 PageHelper 页码分页 `PageResult<T>`。\n- AI 流式接口为 `text/event-stream`（SSE），禁止使用原生 EventSource 自动重连；弹幕为 WebSocket 帧协议，发送者不提前渲染、不做 ACK。\n\n**错误码**：40001~40004 参数 / 内容错误；40101 / 40102 未认证 / 过期；40301~40303 权限；40401~40403 不存在；40901/40903/40904 状态冲突；42901 限流；43001~43005 秒杀；44001~44004 AI；45001~45003 上传；50000 / 50301 服务端与依赖。\n\n**v1.14 变更**：关注 / 取关、粉丝 / 关注列表、帖子编辑 / 删除 / 重提与管理端审核状态流转按 MVP 落地。关注关系与双方计数在 MySQL 同一事务内维护；所有接口直接读写 MySQL，详情缓存 / Feed 写扩散 / ES 索引随对应模块接入；管理端审核接口返回 `PostAudit`，管理端列表 / 详情随后实现。",
     "contact": {
       "name": "Glimmer 项目"
     },
@@ -861,7 +861,7 @@
           "用户"
         ],
         "summary": "关注用户",
-        "description": "不能关注自己（`40001`）；重复关注幂等，返回当前状态。\n\n鉴权：登录。",
+        "description": "不能关注自己（`40001`）；目标用户不存在或已封禁返回 `40401`；重复关注幂等，返回当前状态。关注关系与双方计数在同一事务内更新，允许短暂最终一致。\n\n鉴权：登录。",
         "operationId": "followUser",
         "security": [
           {
@@ -991,7 +991,7 @@
           "用户"
         ],
         "summary": "取关用户",
-        "description": "重复取关幂等，返回当前状态。\n\n鉴权：登录。",
+        "description": "不能取关自己（`40001`）；目标用户不存在或已封禁返回 `40401`；重复取关幂等，返回当前状态。关注关系与双方计数在同一事务内更新，允许短暂最终一致。\n\n鉴权：登录。",
         "operationId": "unfollowUser",
         "security": [
           {
@@ -1123,7 +1123,7 @@
           "用户"
         ],
         "summary": "粉丝列表",
-        "description": "按关注关系创建时间倒序；有登录态时每个用户额外带 `isFollowing`。\n\n鉴权：可选登录；匿名可访问，带合法 Token 时补充个性化字段。",
+        "description": "按关注关系创建时间倒序；登录态下每个用户额外带 `isFollowing`；坏游标按首页处理，`size` 默认 20、越界夹到 1~50。\n\n鉴权：可选登录（匿名可访问，带合法 Token 时返回个性化字段）。",
         "operationId": "getFollowers",
         "security": [
           {
@@ -1234,7 +1234,7 @@
           "用户"
         ],
         "summary": "关注列表",
-        "description": "按关注关系创建时间倒序；有登录态时每个用户额外带 `isFollowing`。\n\n鉴权：可选登录；匿名可访问，带合法 Token 时补充个性化字段。",
+        "description": "按关注关系创建时间倒序；登录态下每个用户额外带 `isFollowing`；坏游标按首页处理，`size` 默认 20、越界夹到 1~50。\n\n鉴权：可选登录（匿名可访问，带合法 Token 时返回个性化字段）。",
         "operationId": "getFollowing",
         "security": [
           {
@@ -2318,7 +2318,7 @@
           "帖子"
         ],
         "summary": "编辑帖子",
-        "description": "全量替换可编辑字段。作者可编辑 `status=0/1/2`；编辑后统一回到 `0` 待审核并重新入审，清空 `audit_*`。原 1/2 编辑后立即重新公开；`status=3` 返回 `40901`。不重置 `published_at` / `last_interaction_at`，不重复 Feed 写扩散；删除详情缓存并发送 `SEARCH_UPSERT`。\n\n鉴权：登录。",
+        "description": "全量替换可编辑字段。作者可编辑 `status=0/1/2`，编辑后统一回到 `0` 待审核并清空 `audit_*`；`status=3` 返回 `40901`；不重置 `published_at` / `last_interaction_at`。MVP 直接更新 MySQL，图片与标签先删后插；详情缓存、Feed 写扩散与 ES 索引随对应模块接入。\n\n鉴权：登录。",
         "operationId": "updatePost",
         "security": [
           {
@@ -2558,7 +2558,7 @@
           "帖子"
         ],
         "summary": "删除帖子",
-        "description": "仅作者本人。置 `is_deleted=1`，是终态，MVP 不提供恢复；删除详情缓存并发送 `SEARCH_DELETE`。重复删除幂等返回 `204`。\n\n鉴权：登录。",
+        "description": "仅作者本人。置 `is_deleted=1`，为终态，MVP 不提供恢复；重复删除幂等返回 `204`。MVP 只做软删除，详情缓存与 ES 删除事件随对应模块接入。\n\n鉴权：登录。",
         "operationId": "deletePost",
         "security": [
           {
@@ -2661,7 +2661,7 @@
           "帖子"
         ],
         "summary": "直接重新提交（不修改内容）",
-        "description": "仅作者本人、仅 `status=2`。语义是不修改内容直接重新提交审核（`2 → 0`），清空 `audit_*`，立即重新公开并进入待审队列。修改内容请用 `PUT /posts/{postId}`，编辑本身已包含重新提交。不重置 `published_at`，不重复 Feed 扩散。\n\n鉴权：登录。",
+        "description": "仅作者本人。仅 `status=2` 可重提，成功后 `2 → 0` 并清空 `audit_*`，立即重新公开；不重置 `published_at`。修改内容请用 `PUT /posts/{postId}`。MVP 直接更新 MySQL，缓存与 ES 索引随对应模块接入。\n\n鉴权：登录。",
         "operationId": "resubmitPost",
         "security": [
           {
@@ -6269,7 +6269,7 @@
           "管理端"
         ],
         "summary": "审核通过",
-        "description": "CAS `0 → 1`，写审核字段并清空 `audit_reason`；不修改 `published_at` / `last_interaction_at`，不重复 Feed 写扩散。删除详情缓存并发送 `SEARCH_UPSERT`。管理员不能审核自己的帖子（`40303`）；已是已发布状态时幂等返回当前详情；其他状态返回 `40904`。\n\n鉴权：ADMIN；`/api/v1/admin/**` 统一校验 role=ADMIN。",
+        "description": "CAS `0 → 1`，写审核字段并清空 `audit_reason`；不修改 `published_at` / `last_interaction_at`。管理员不能审核自己的帖子（`40303`）；已是已发布状态时幂等返回；其他状态返回 `40904`。MVP 只更新 MySQL 状态，缓存与 ES 同步随对应模块接入；管理端列表 / 详情随后实现，本接口返回 `PostAudit`。\n\n鉴权：ADMIN（`/api/v1/admin/**` 统一校验 role=ADMIN）。",
         "operationId": "adminApprovePost",
         "security": [
           {
@@ -6301,7 +6301,7 @@
                       "type": "object",
                       "properties": {
                         "data": {
-                          "$ref": "#/components/schemas/AdminPostDetail"
+                          "$ref": "#/components/schemas/PostAudit"
                         }
                       }
                     }
@@ -6312,50 +6312,12 @@
                   "message": "ok",
                   "data": {
                     "id": "1001",
-                    "title": "周末去山里露营",
-                    "content": "第一次在秋天露营，夜里能看到银河。",
-                    "coverUrl": "https://cdn.example.com/post/1001/cover.jpg",
-                    "images": [
-                      {
-                        "url": "https://cdn.example.com/post/1001/1.jpg",
-                        "sortOrder": 0
-                      },
-                      {
-                        "url": "https://cdn.example.com/post/1001/2.jpg",
-                        "sortOrder": 1
-                      }
-                    ],
-                    "author": {
-                      "id": "1",
-                      "nickname": "小光",
-                      "avatarUrl": "https://cdn.example.com/avatar/1.png"
-                    },
-                    "tags": [
-                      {
-                        "id": "12",
-                        "name": "露营"
-                      }
-                    ],
                     "status": 1,
                     "statusText": "已发布",
                     "auditReason": null,
-                    "likeCount": 12,
-                    "commentCount": 3,
-                    "collectCount": 4,
-                    "viewCount": 100,
                     "publishedAt": 1730000000000,
-                    "createdAt": 1729990000000,
-                    "updatedAt": 1730000000000,
-                    "liked": false,
-                    "collected": false,
-                    "isFollowingAuthor": false,
-                    "canEdit": false,
-                    "canResubmit": false,
-                    "canDelete": false,
-                    "aiTagStatus": null,
                     "auditedAt": 1730000000000,
-                    "auditedBy": "9",
-                    "canAudit": true
+                    "auditedBy": "9"
                   },
                   "traceId": "4f7c2a9e8b1d4c6f"
                 }
@@ -6452,7 +6414,7 @@
           "管理端"
         ],
         "summary": "审核拒绝",
-        "description": "CAS `0 → 2`，写 `audit_reason` / `audited_at` / `audited_by`。帖子立即从公开列表 / Feed / 热榜 / 搜索消失，发送 `SEARCH_DELETE`。作者可编辑（`PUT`）后回到 `0` 重新公开并再次入审，也可不修改内容直接 `resubmit`；编辑不重置 `published_at`。\n\n鉴权：ADMIN；`/api/v1/admin/**` 统一校验 role=ADMIN。",
+        "description": "CAS `0 → 2`，写 `audit_reason` / `audited_at` / `audited_by`；帖子立即从公开列表 / Feed / 搜索消失（读取时过滤）。管理员不能审核自己的帖子（`40303`）；其他状态返回 `40904`。MVP 只更新 MySQL 状态，缓存与 ES 同步随对应模块接入；本接口返回 `PostAudit`。\n\n鉴权：ADMIN（`/api/v1/admin/**` 统一校验 role=ADMIN）。",
         "operationId": "adminRejectPost",
         "security": [
           {
@@ -6497,7 +6459,7 @@
                       "type": "object",
                       "properties": {
                         "data": {
-                          "$ref": "#/components/schemas/AdminPostDetail"
+                          "$ref": "#/components/schemas/PostAudit"
                         }
                       }
                     }
@@ -6508,50 +6470,12 @@
                   "message": "ok",
                   "data": {
                     "id": "1001",
-                    "title": "周末去山里露营",
-                    "content": "第一次在秋天露营，夜里能看到银河。",
-                    "coverUrl": "https://cdn.example.com/post/1001/cover.jpg",
-                    "images": [
-                      {
-                        "url": "https://cdn.example.com/post/1001/1.jpg",
-                        "sortOrder": 0
-                      },
-                      {
-                        "url": "https://cdn.example.com/post/1001/2.jpg",
-                        "sortOrder": 1
-                      }
-                    ],
-                    "author": {
-                      "id": "1",
-                      "nickname": "小光",
-                      "avatarUrl": "https://cdn.example.com/avatar/1.png"
-                    },
-                    "tags": [
-                      {
-                        "id": "12",
-                        "name": "露营"
-                      }
-                    ],
                     "status": 2,
                     "statusText": "审核拒绝",
                     "auditReason": "图片与正文无关，请修改后重新提交",
-                    "likeCount": 12,
-                    "commentCount": 3,
-                    "collectCount": 4,
-                    "viewCount": 100,
                     "publishedAt": 1730000000000,
-                    "createdAt": 1729990000000,
-                    "updatedAt": 1730000000000,
-                    "liked": false,
-                    "collected": false,
-                    "isFollowingAuthor": false,
-                    "canEdit": false,
-                    "canResubmit": false,
-                    "canDelete": false,
-                    "aiTagStatus": null,
                     "auditedAt": 1730000000000,
-                    "auditedBy": "9",
-                    "canAudit": true
+                    "auditedBy": "9"
                   },
                   "traceId": "4f7c2a9e8b1d4c6f"
                 }
@@ -6669,7 +6593,7 @@
           "管理端"
         ],
         "summary": "下架",
-        "description": "CAS `0/1 → 3`，写审核字段；删除详情缓存并发送 `SEARCH_DELETE`。不物理删除帖子与互动数据。\n\n鉴权：ADMIN；`/api/v1/admin/**` 统一校验 role=ADMIN。",
+        "description": "CAS `0/1 → 3`，写审核字段；不物理删除帖子与互动数据；管理员不能操作自己的帖子（`40303`）；其他状态返回 `40904`。MVP 只更新 MySQL 状态，缓存与 ES 同步随对应模块接入；本接口返回 `PostAudit`。\n\n鉴权：ADMIN（`/api/v1/admin/**` 统一校验 role=ADMIN）。",
         "operationId": "adminTakedownPost",
         "security": [
           {
@@ -6714,7 +6638,7 @@
                       "type": "object",
                       "properties": {
                         "data": {
-                          "$ref": "#/components/schemas/AdminPostDetail"
+                          "$ref": "#/components/schemas/PostAudit"
                         }
                       }
                     }
@@ -6725,50 +6649,12 @@
                   "message": "ok",
                   "data": {
                     "id": "1001",
-                    "title": "周末去山里露营",
-                    "content": "第一次在秋天露营，夜里能看到银河。",
-                    "coverUrl": "https://cdn.example.com/post/1001/cover.jpg",
-                    "images": [
-                      {
-                        "url": "https://cdn.example.com/post/1001/1.jpg",
-                        "sortOrder": 0
-                      },
-                      {
-                        "url": "https://cdn.example.com/post/1001/2.jpg",
-                        "sortOrder": 1
-                      }
-                    ],
-                    "author": {
-                      "id": "1",
-                      "nickname": "小光",
-                      "avatarUrl": "https://cdn.example.com/avatar/1.png"
-                    },
-                    "tags": [
-                      {
-                        "id": "12",
-                        "name": "露营"
-                      }
-                    ],
                     "status": 3,
                     "statusText": "已下架",
                     "auditReason": "内容违反社区规范",
-                    "likeCount": 12,
-                    "commentCount": 3,
-                    "collectCount": 4,
-                    "viewCount": 100,
                     "publishedAt": 1730000000000,
-                    "createdAt": 1729990000000,
-                    "updatedAt": 1730000000000,
-                    "liked": false,
-                    "collected": false,
-                    "isFollowingAuthor": false,
-                    "canEdit": false,
-                    "canResubmit": false,
-                    "canDelete": false,
-                    "aiTagStatus": null,
                     "auditedAt": 1730000000000,
-                    "auditedBy": "9",
-                    "canAudit": true
+                    "auditedBy": "9"
                   },
                   "traceId": "4f7c2a9e8b1d4c6f"
                 }
@@ -6886,7 +6772,7 @@
           "管理端"
         ],
         "summary": "恢复已下架帖子",
-        "description": "CAS `3 → 1` 且 `is_deleted=0`，清空 `audit_reason`；不重置 `published_at`，不重复 Feed 写扩散；删除缓存并发送 `SEARCH_UPSERT`。\n\n鉴权：ADMIN；`/api/v1/admin/**` 统一校验 role=ADMIN。",
+        "description": "CAS `3 → 1`，清空 `audit_reason`；不重置 `published_at`；管理员不能操作自己的帖子（`40303`）；其他状态返回 `40904`。本接口返回 `PostAudit`。\n\n鉴权：ADMIN（`/api/v1/admin/**` 统一校验 role=ADMIN）。",
         "operationId": "adminRestorePost",
         "security": [
           {
@@ -6918,7 +6804,7 @@
                       "type": "object",
                       "properties": {
                         "data": {
-                          "$ref": "#/components/schemas/AdminPostDetail"
+                          "$ref": "#/components/schemas/PostAudit"
                         }
                       }
                     }
@@ -6929,50 +6815,12 @@
                   "message": "ok",
                   "data": {
                     "id": "1001",
-                    "title": "周末去山里露营",
-                    "content": "第一次在秋天露营，夜里能看到银河。",
-                    "coverUrl": "https://cdn.example.com/post/1001/cover.jpg",
-                    "images": [
-                      {
-                        "url": "https://cdn.example.com/post/1001/1.jpg",
-                        "sortOrder": 0
-                      },
-                      {
-                        "url": "https://cdn.example.com/post/1001/2.jpg",
-                        "sortOrder": 1
-                      }
-                    ],
-                    "author": {
-                      "id": "1",
-                      "nickname": "小光",
-                      "avatarUrl": "https://cdn.example.com/avatar/1.png"
-                    },
-                    "tags": [
-                      {
-                        "id": "12",
-                        "name": "露营"
-                      }
-                    ],
                     "status": 1,
                     "statusText": "已发布",
                     "auditReason": null,
-                    "likeCount": 12,
-                    "commentCount": 3,
-                    "collectCount": 4,
-                    "viewCount": 100,
                     "publishedAt": 1730000000000,
-                    "createdAt": 1729990000000,
-                    "updatedAt": 1730000000000,
-                    "liked": false,
-                    "collected": false,
-                    "isFollowingAuthor": false,
-                    "canEdit": false,
-                    "canResubmit": false,
-                    "canDelete": false,
-                    "aiTagStatus": null,
                     "auditedAt": 1730000000000,
-                    "auditedBy": "9",
-                    "canAudit": true
+                    "auditedBy": "9"
                   },
                   "traceId": "4f7c2a9e8b1d4c6f"
                 }
@@ -10615,13 +10463,19 @@
           },
           "message": {
             "type": "string"
+          },
+          "publishedAt": {
+            "type": "integer",
+            "format": "int64",
+            "description": "首次发布时间，epoch 毫秒"
           }
         },
         "required": [
           "id",
           "status",
           "statusText",
-          "message"
+          "message",
+          "publishedAt"
         ]
       },
       "SeckillQueuedResult": {
@@ -11250,6 +11104,58 @@
         "required": [
           "sessionId",
           "question"
+        ]
+      },
+      "PostAudit": {
+        "type": "object",
+        "description": "管理端审核操作结果（MVP；管理端列表 / 详情随后实现）",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "帖子 ID"
+          },
+          "status": {
+            "type": "integer",
+            "format": "int32",
+            "enum": [
+              0,
+              1,
+              2,
+              3
+            ],
+            "description": "操作后的状态"
+          },
+          "statusText": {
+            "type": "string",
+            "description": "中文状态"
+          },
+          "auditReason": {
+            "type": "string",
+            "nullable": true,
+            "description": "拒绝 / 下架原因；通过 / 恢复时为 null"
+          },
+          "publishedAt": {
+            "type": "integer",
+            "format": "int64",
+            "description": "首次发布时间，epoch 毫秒"
+          },
+          "auditedAt": {
+            "type": "integer",
+            "format": "int64",
+            "description": "本次裁决时间，epoch 毫秒"
+          },
+          "auditedBy": {
+            "type": "string",
+            "nullable": true,
+            "description": "裁决管理员 ID"
+          }
+        },
+        "required": [
+          "id",
+          "status",
+          "statusText",
+          "publishedAt",
+          "auditedAt"
         ]
       }
     }

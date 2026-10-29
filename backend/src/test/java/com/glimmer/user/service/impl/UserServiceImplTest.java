@@ -1,17 +1,24 @@
 package com.glimmer.user.service.impl;
 
+import com.baomidou.mybatisplus.core.MybatisConfiguration;
+import com.baomidou.mybatisplus.core.metadata.TableInfoHelper;
+import com.glimmer.common.api.CursorPage;
 import com.glimmer.common.exception.BizException;
 import com.glimmer.common.exception.ErrorCode;
 import com.glimmer.common.web.LoginUser;
 import com.glimmer.common.web.UserContext;
 import com.glimmer.user.dto.UpdateProfileDTO;
+import com.glimmer.user.vo.FollowResultVO;
+import com.glimmer.user.vo.FollowUserVO;
 import com.glimmer.user.vo.SelfProfileVO;
 import com.glimmer.user.entity.UserDO;
 import com.glimmer.user.entity.UserFollowDO;
 import com.glimmer.user.mapper.UserFollowMapper;
 import com.glimmer.user.mapper.UserMapper;
 import com.glimmer.user.vo.UserBriefVO;
+import org.apache.ibatis.builder.MapperBuilderAssistant;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
@@ -24,7 +31,10 @@ import java.util.Map;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -34,6 +44,14 @@ class UserServiceImplTest {
     private UserMapper userMapper;
     private UserFollowMapper userFollowMapper;
     private UserServiceImpl userService;
+
+    @BeforeAll
+    static void initTableInfo() {
+        // 纯单测没有 MyBatis 启动流程，先注册实体元数据，Lambda 条件才能生成 SQL。
+        MapperBuilderAssistant assistant = new MapperBuilderAssistant(new MybatisConfiguration(), "");
+        TableInfoHelper.initTableInfo(assistant, UserDO.class);
+        TableInfoHelper.initTableInfo(assistant, UserFollowDO.class);
+    }
 
     @BeforeEach
     void setUp() {
@@ -233,6 +251,132 @@ class UserServiceImplTest {
                 follow(1L, null)));
 
         assertThat(userService.listFollowingIds(1L)).containsExactly(2L, 3L);
+    }
+
+    @Test
+    void shouldFollowUserAndIncreaseCounts() {
+        when(userMapper.selectById(2L)).thenReturn(user(2L, "阿野"));
+        when(userFollowMapper.selectCount(any())).thenReturn(0L);
+
+        FollowResultVO result = userService.follow("2");
+
+        assertThat(result.userId()).isEqualTo("2");
+        assertThat(result.following()).isTrue();
+        assertThat(result.followerCount()).isEqualTo(4);
+
+        ArgumentCaptor<UserFollowDO> captor = ArgumentCaptor.forClass(UserFollowDO.class);
+        verify(userFollowMapper).insert(captor.capture());
+        assertThat(captor.getValue().getFollowerId()).isEqualTo(1L);
+        assertThat(captor.getValue().getFolloweeId()).isEqualTo(2L);
+        verify(userMapper, times(2)).update(isNull(), any());
+    }
+
+    @Test
+    void shouldTreatRepeatFollowAsIdempotent() {
+        when(userMapper.selectById(2L)).thenReturn(user(2L, "阿野"));
+        when(userFollowMapper.selectCount(any())).thenReturn(1L);
+
+        FollowResultVO result = userService.follow("2");
+
+        assertThat(result.following()).isTrue();
+        assertThat(result.followerCount()).isEqualTo(3);
+        verify(userFollowMapper, never()).insert(any(UserFollowDO.class));
+        verify(userMapper, never()).update(isNull(), any());
+    }
+
+    @Test
+    void shouldRejectSelfFollow() {
+        assertThatThrownBy(() -> userService.follow("1"))
+                .isInstanceOfSatisfying(BizException.class,
+                        e -> assertThat(e.errorCode()).isEqualTo(ErrorCode.INVALID_PARAM));
+        verifyNoInteractions(userMapper, userFollowMapper);
+    }
+
+    @Test
+    void shouldRejectFollowMissingOrBannedUser() {
+        when(userMapper.selectById(2L)).thenReturn(null);
+        UserDO banned = user(3L, "阿野");
+        banned.setStatus(1);
+        when(userMapper.selectById(3L)).thenReturn(banned);
+
+        assertThatThrownBy(() -> userService.follow("2"))
+                .isInstanceOfSatisfying(BizException.class,
+                        e -> assertThat(e.errorCode()).isEqualTo(ErrorCode.NOT_FOUND));
+        assertThatThrownBy(() -> userService.follow("3"))
+                .isInstanceOfSatisfying(BizException.class,
+                        e -> assertThat(e.errorCode()).isEqualTo(ErrorCode.NOT_FOUND));
+    }
+
+    @Test
+    void shouldUnfollowUserAndDecreaseCounts() {
+        when(userMapper.selectById(2L)).thenReturn(user(2L, "阿野"));
+        when(userFollowMapper.delete(any())).thenReturn(1);
+
+        FollowResultVO result = userService.unfollow("2");
+
+        assertThat(result.following()).isFalse();
+        assertThat(result.followerCount()).isEqualTo(2);
+        verify(userMapper, times(2)).update(isNull(), any());
+    }
+
+    @Test
+    void shouldTreatRepeatUnfollowAsIdempotent() {
+        when(userMapper.selectById(2L)).thenReturn(user(2L, "阿野"));
+        when(userFollowMapper.delete(any())).thenReturn(0);
+
+        FollowResultVO result = userService.unfollow("2");
+
+        assertThat(result.following()).isFalse();
+        assertThat(result.followerCount()).isEqualTo(3);
+        verify(userMapper, never()).update(isNull(), any());
+    }
+
+    @Test
+    void shouldPageFollowersWithViewerFollowingFlag() {
+        LocalDateTime now = LocalDateTime.of(2026, 10, 29, 12, 0);
+        UserFollowDO newest = follow(3L, 2L);
+        newest.setId(10L);
+        newest.setCreatedAt(now);
+        UserFollowDO older = follow(4L, 2L);
+        older.setId(9L);
+        older.setCreatedAt(now.minusMinutes(1));
+        UserFollowDO viewerFollows = follow(1L, 3L);
+
+        when(userMapper.selectById(2L)).thenReturn(user(2L, "阿野"));
+        when(userFollowMapper.selectList(any()))
+                .thenReturn(List.of(newest, older))
+                .thenReturn(List.of(viewerFollows));
+        when(userMapper.selectBatchIds(any())).thenReturn(List.of(
+                user(3L, "小满"), user(4L, "阿野")));
+
+        CursorPage<FollowUserVO> page = userService.listFollowers("2", null, 1);
+
+        assertThat(page.items()).hasSize(1);
+        assertThat(page.items().get(0).id()).isEqualTo("3");
+        assertThat(page.items().get(0).isFollowing()).isTrue();
+        assertThat(page.hasMore()).isTrue();
+        assertThat(page.nextCursor()).isNotBlank();
+    }
+
+    @Test
+    void shouldReturnEmptyFollowersWhenNone() {
+        when(userMapper.selectById(2L)).thenReturn(user(2L, "阿野"));
+        when(userFollowMapper.selectList(any())).thenReturn(List.of());
+
+        CursorPage<FollowUserVO> page = userService.listFollowers("2", null, 20);
+
+        assertThat(page.items()).isEmpty();
+        assertThat(page.hasMore()).isFalse();
+        assertThat(page.nextCursor()).isNull();
+    }
+
+    @Test
+    void shouldRejectFollowListForMissingUser() {
+        when(userMapper.selectById(2L)).thenReturn(null);
+
+        assertThatThrownBy(() -> userService.listFollowers("2", null, 20))
+                .isInstanceOfSatisfying(BizException.class,
+                        e -> assertThat(e.errorCode()).isEqualTo(ErrorCode.NOT_FOUND));
     }
 
     private UserDO capturedPatch() {

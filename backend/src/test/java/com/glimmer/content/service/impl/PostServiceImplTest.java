@@ -1,5 +1,7 @@
 package com.glimmer.content.service.impl;
 
+import com.baomidou.mybatisplus.core.MybatisConfiguration;
+import com.baomidou.mybatisplus.core.metadata.TableInfoHelper;
 import com.glimmer.common.api.CursorPage;
 import com.glimmer.common.exception.BizException;
 import com.glimmer.common.exception.ErrorCode;
@@ -15,13 +17,16 @@ import com.glimmer.content.mapper.PostMapper;
 import com.glimmer.content.mapper.PostTagMapper;
 import com.glimmer.content.mapper.TagMapper;
 import com.glimmer.content.vo.ImageItemVO;
+import com.glimmer.content.vo.PostAuditVO;
 import com.glimmer.content.vo.PostCreateVO;
 import com.glimmer.content.vo.PostDetailVO;
 import com.glimmer.content.vo.PostSummaryVO;
 import com.glimmer.content.vo.TagVO;
 import com.glimmer.user.service.UserService;
 import com.glimmer.user.vo.UserBriefVO;
+import org.apache.ibatis.builder.MapperBuilderAssistant;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
@@ -34,7 +39,9 @@ import java.util.Map;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -48,6 +55,13 @@ class PostServiceImplTest {
     private TagMapper tagMapper;
     private UserService userService;
     private PostServiceImpl postService;
+
+    @BeforeAll
+    static void initTableInfo() {
+        // 纯单测没有 MyBatis 启动流程，先注册实体元数据，Lambda 条件才能生成 SQL。
+        TableInfoHelper.initTableInfo(
+                new MapperBuilderAssistant(new MybatisConfiguration(), ""), PostDO.class);
+    }
 
     @BeforeEach
     void setUp() {
@@ -341,6 +355,235 @@ class PostServiceImplTest {
         assertThat(page.hasMore()).isFalse();
         assertThat(page.nextCursor()).isNull();
         verifyNoInteractions(postMapper, userService);
+    }
+
+    @Test
+    void shouldUpdateOwnPostAndResetAuditState() {
+        LocalDateTime published = LocalDateTime.of(2026, 10, 29, 12, 0);
+        PostDO rejected = post(1001L, 1L, 2, published);
+        rejected.setAuditReason("内容不符合社区规范");
+        PostDO updated = post(1001L, 1L, 0, published);
+        updated.setTitle("新标题");
+        updated.setContent("新正文");
+
+        when(postMapper.selectById(1001L)).thenReturn(rejected, updated);
+        when(postMapper.update(isNull(), any())).thenReturn(1);
+        when(postImageMapper.selectList(any())).thenReturn(List.of(
+                image(1001L, "https://cdn.example.com/1.jpg", 0)));
+        when(postTagMapper.selectList(any())).thenReturn(List.of(postTag(1001L, 3L)));
+        when(tagMapper.selectBatchIds(any())).thenReturn(List.of(tag(3L, "露营")));
+        when(userService.getBrief(1L)).thenReturn(brief(1L, "小光"));
+
+        PostDetailVO detail = postService.update("1001", new CreatePostDTO(
+                "  新标题  ", "新正文",
+                List.of("https://cdn.example.com/2.jpg"),
+                List.of("3")));
+
+        assertThat(detail.title()).isEqualTo("新标题");
+        assertThat(detail.status()).isZero();
+        assertThat(detail.statusText()).isEqualTo("已发布待审核");
+        assertThat(detail.auditReason()).isNull();
+        verify(postImageMapper).delete(any());
+        verify(postTagMapper).delete(any());
+        verify(postImageMapper).insert(any(PostImageDO.class));
+        verify(postTagMapper).insert(any(PostTagDO.class));
+    }
+
+    @Test
+    void shouldRejectEditByOtherUser() {
+        UserContext.set(new LoginUser(2L, "USER"));
+        when(postMapper.selectById(1001L)).thenReturn(post(1001L, 1L, 1,
+                LocalDateTime.of(2026, 10, 29, 12, 0)));
+
+        assertThatThrownBy(() -> postService.update("1001", new CreatePostDTO(
+                "标题", "正文", List.of("https://cdn.example.com/1.jpg"), null)))
+                .isInstanceOfSatisfying(BizException.class,
+                        e -> assertThat(e.errorCode()).isEqualTo(ErrorCode.FORBIDDEN));
+        verify(postMapper, never()).update(isNull(), any());
+    }
+
+    @Test
+    void shouldRejectEditForTakedownPost() {
+        when(postMapper.selectById(1001L)).thenReturn(post(1001L, 1L, 3,
+                LocalDateTime.of(2026, 10, 29, 12, 0)));
+
+        assertThatThrownBy(() -> postService.update("1001", new CreatePostDTO(
+                "标题", "正文", List.of("https://cdn.example.com/1.jpg"), null)))
+                .isInstanceOfSatisfying(BizException.class,
+                        e -> assertThat(e.errorCode()).isEqualTo(ErrorCode.STATE_CONFLICT));
+        verify(postMapper, never()).update(isNull(), any());
+    }
+
+    @Test
+    void shouldHideDeletedPostFromEdit() {
+        PostDO deleted = post(1001L, 1L, 1, LocalDateTime.of(2026, 10, 29, 12, 0));
+        deleted.setIsDeleted(1);
+        when(postMapper.selectById(1001L)).thenReturn(deleted);
+
+        assertThatThrownBy(() -> postService.update("1001", new CreatePostDTO(
+                "标题", "正文", List.of("https://cdn.example.com/1.jpg"), null)))
+                .isInstanceOfSatisfying(BizException.class,
+                        e -> assertThat(e.errorCode()).isEqualTo(ErrorCode.POST_NOT_VISIBLE));
+        verify(postMapper, never()).update(isNull(), any());
+    }
+
+    @Test
+    void shouldDeleteOwnPost() {
+        when(postMapper.selectById(1001L)).thenReturn(post(1001L, 1L, 1,
+                LocalDateTime.of(2026, 10, 29, 12, 0)));
+        when(postMapper.update(isNull(), any())).thenReturn(1);
+
+        postService.delete("1001");
+
+        verify(postMapper).update(isNull(), any());
+    }
+
+    @Test
+    void shouldTreatRepeatDeleteAsIdempotent() {
+        PostDO deleted = post(1001L, 1L, 1, LocalDateTime.of(2026, 10, 29, 12, 0));
+        deleted.setIsDeleted(1);
+        when(postMapper.selectById(1001L)).thenReturn(deleted);
+
+        postService.delete("1001");
+
+        verify(postMapper, never()).update(isNull(), any());
+    }
+
+    @Test
+    void shouldRejectDeleteByOtherUser() {
+        UserContext.set(new LoginUser(2L, "USER"));
+        when(postMapper.selectById(1001L)).thenReturn(post(1001L, 1L, 1,
+                LocalDateTime.of(2026, 10, 29, 12, 0)));
+
+        assertThatThrownBy(() -> postService.delete("1001"))
+                .isInstanceOfSatisfying(BizException.class,
+                        e -> assertThat(e.errorCode()).isEqualTo(ErrorCode.FORBIDDEN));
+        verify(postMapper, never()).update(isNull(), any());
+    }
+
+    @Test
+    void shouldResubmitRejectedPost() {
+        when(postMapper.selectById(1001L)).thenReturn(post(1001L, 1L, 2,
+                LocalDateTime.of(2026, 10, 29, 12, 0)));
+        when(postMapper.update(isNull(), any())).thenReturn(1);
+
+        PostCreateVO response = postService.resubmit("1001");
+
+        assertThat(response.id()).isEqualTo("1001");
+        assertThat(response.status()).isZero();
+        assertThat(response.statusText()).isEqualTo("已发布待审核");
+        assertThat(response.message()).isEqualTo("已重新发布，等待审核");
+        verify(postMapper).update(isNull(), any());
+    }
+
+    @Test
+    void shouldRejectResubmitWhenNotRejected() {
+        when(postMapper.selectById(1001L)).thenReturn(post(1001L, 1L, 1,
+                LocalDateTime.of(2026, 10, 29, 12, 0)));
+
+        assertThatThrownBy(() -> postService.resubmit("1001"))
+                .isInstanceOfSatisfying(BizException.class,
+                        e -> assertThat(e.errorCode()).isEqualTo(ErrorCode.STATE_CONFLICT));
+        verify(postMapper, never()).update(isNull(), any());
+    }
+
+    @Test
+    void shouldApprovePendingPost() {
+        UserContext.set(new LoginUser(9L, "ADMIN"));
+        when(postMapper.selectById(1001L)).thenReturn(post(1001L, 1L, 0,
+                LocalDateTime.of(2026, 10, 29, 12, 0)));
+        when(postMapper.update(isNull(), any())).thenReturn(1);
+
+        PostAuditVO result = postService.approve("1001");
+
+        assertThat(result.id()).isEqualTo("1001");
+        assertThat(result.status()).isEqualTo(1);
+        assertThat(result.statusText()).isEqualTo("已发布");
+        assertThat(result.auditReason()).isNull();
+        assertThat(result.auditedBy()).isEqualTo("9");
+        verify(postMapper).update(isNull(), any());
+    }
+
+    @Test
+    void shouldReturnCurrentStateWhenAlreadyApproved() {
+        UserContext.set(new LoginUser(9L, "ADMIN"));
+        when(postMapper.selectById(1001L)).thenReturn(
+                post(1001L, 1L, 0, LocalDateTime.of(2026, 10, 29, 12, 0)),
+                post(1001L, 1L, 1, LocalDateTime.of(2026, 10, 29, 12, 0)));
+        when(postMapper.update(isNull(), any())).thenReturn(0);
+
+        PostAuditVO result = postService.approve("1001");
+
+        assertThat(result.status()).isEqualTo(1);
+    }
+
+    @Test
+    void shouldRejectSelfAudit() {
+        UserContext.set(new LoginUser(9L, "ADMIN"));
+        when(postMapper.selectById(1001L)).thenReturn(post(1001L, 9L, 0,
+                LocalDateTime.of(2026, 10, 29, 12, 0)));
+
+        assertThatThrownBy(() -> postService.approve("1001"))
+                .isInstanceOfSatisfying(BizException.class,
+                        e -> assertThat(e.errorCode()).isEqualTo(ErrorCode.AUDIT_SELF_FORBIDDEN));
+        verify(postMapper, never()).update(isNull(), any());
+    }
+
+    @Test
+    void shouldRejectPendingPostWithReason() {
+        UserContext.set(new LoginUser(9L, "ADMIN"));
+        when(postMapper.selectById(1001L)).thenReturn(post(1001L, 1L, 0,
+                LocalDateTime.of(2026, 10, 29, 12, 0)));
+        when(postMapper.update(isNull(), any())).thenReturn(1);
+
+        PostAuditVO result = postService.reject("1001", "  图片与正文无关  ");
+
+        assertThat(result.status()).isEqualTo(2);
+        assertThat(result.statusText()).isEqualTo("审核拒绝");
+        assertThat(result.auditReason()).isEqualTo("图片与正文无关");
+        assertThat(result.auditedBy()).isEqualTo("9");
+    }
+
+    @Test
+    void shouldRejectBlankAuditReason() {
+        UserContext.set(new LoginUser(9L, "ADMIN"));
+        when(postMapper.selectById(1001L)).thenReturn(post(1001L, 1L, 0,
+                LocalDateTime.of(2026, 10, 29, 12, 0)));
+
+        assertThatThrownBy(() -> postService.reject("1001", "   "))
+                .isInstanceOfSatisfying(BizException.class,
+                        e -> assertThat(e.errorCode()).isEqualTo(ErrorCode.INVALID_PARAM));
+        verify(postMapper, never()).update(isNull(), any());
+    }
+
+    @Test
+    void shouldTakedownAndRestorePost() {
+        UserContext.set(new LoginUser(9L, "ADMIN"));
+        when(postMapper.selectById(1001L)).thenReturn(
+                post(1001L, 1L, 1, LocalDateTime.of(2026, 10, 29, 12, 0)),
+                post(1001L, 1L, 3, LocalDateTime.of(2026, 10, 29, 12, 0)));
+        when(postMapper.update(isNull(), any())).thenReturn(1);
+
+        PostAuditVO takedown = postService.takedown("1001", "违反社区规范");
+        PostAuditVO restore = postService.restore("1001");
+
+        assertThat(takedown.status()).isEqualTo(3);
+        assertThat(takedown.statusText()).isEqualTo("已下架");
+        assertThat(restore.status()).isEqualTo(1);
+        assertThat(restore.auditReason()).isNull();
+    }
+
+    @Test
+    void shouldRejectAuditWhenStatusChanged() {
+        UserContext.set(new LoginUser(9L, "ADMIN"));
+        when(postMapper.selectById(1001L)).thenReturn(
+                post(1001L, 1L, 0, LocalDateTime.of(2026, 10, 29, 12, 0)),
+                post(1001L, 1L, 3, LocalDateTime.of(2026, 10, 29, 12, 0)));
+        when(postMapper.update(isNull(), any())).thenReturn(0);
+
+        assertThatThrownBy(() -> postService.approve("1001"))
+                .isInstanceOfSatisfying(BizException.class,
+                        e -> assertThat(e.errorCode()).isEqualTo(ErrorCode.AUDIT_STATE_CHANGED));
     }
 
     private TagDO tag(long id) {

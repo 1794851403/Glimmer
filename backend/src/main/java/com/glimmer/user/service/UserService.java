@@ -1,6 +1,9 @@
 package com.glimmer.user.service;
 
+import com.glimmer.common.api.CursorPage;
 import com.glimmer.user.dto.UpdateProfileDTO;
+import com.glimmer.user.vo.FollowResultVO;
+import com.glimmer.user.vo.FollowUserVO;
 import com.glimmer.user.vo.SelfProfileVO;
 import com.glimmer.user.vo.UserBriefVO;
 
@@ -68,4 +71,48 @@ public interface UserService {
      * @return 被关注用户 ID 列表；未关注任何人时返回空列表
      */
     List<Long> listFollowingIds(Long followerId);
+
+    /**
+     * 关注用户。
+     *
+     * <p>需登录；不能关注自己；重复关注幂等。关注成功后同步维护双方计数。
+     *
+     * @param userId 目标用户 ID，允许数字字符串
+     * @return 目标用户 ID、当前关注状态与目标用户粉丝数
+     */
+    FollowResultVO follow(String userId);
+
+    /**
+     * 取关用户。
+     *
+     * <p>需登录；不能取关自己；重复取关幂等。
+     *
+     * @param userId 目标用户 ID，允许数字字符串
+     * @return 目标用户 ID、当前关注状态与目标用户粉丝数
+     */
+    FollowResultVO unfollow(String userId);
+
+    /**
+     * 分页查询粉丝列表，按关注关系创建时间倒序。
+     *
+     * <p>可选登录；登录时每条记录带 {@code isFollowing}。坏游标按首页处理。
+     *
+     * @param userId 目标用户 ID，允许数字字符串
+     * @param cursor 上一页返回的 nextCursor，可为空
+     * @param size   每页数量，默认 20，越界自动夹到 1~50
+     * @return 用户简要信息游标页
+     */
+    CursorPage<FollowUserVO> listFollowers(String userId, String cursor, Integer size);
+
+    /**
+     * 分页查询关注列表，按关注关系创建时间倒序。
+     *
+     * <p>可选登录；登录时每条记录带 {@code isFollowing}。坏游标按首页处理。
+     *
+     * @param userId 目标用户 ID，允许数字字符串
+     * @param cursor 上一页返回的 nextCursor，可为空
+     * @param size   每页数量，默认 20，越界自动夹到 1~50
+     * @return 用户简要信息游标页
+     */
+    CursorPage<FollowUserVO> listFollowing(String userId, String cursor, Integer size);
 }

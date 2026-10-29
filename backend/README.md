@@ -16,28 +16,30 @@ src/main/java/com/glimmer/
 │   ├── storage/        # OssStorageService：后端中转 OSS 上传
 │   └── web/            # TraceId、UserContext
 ├── content/
-│   ├── controller/     # files/images 图片上传；posts 发帖 / 详情；tags 标签列表
-│   ├── dto/            # 入参：CreatePostDTO
-│   ├── vo/             # 出参：PostCreateVO / PostDetailVO / PostSummaryVO / TagVO / ImageItemVO
+│   ├── controller/     # files/images 图片上传；posts 发帖 / 详情 / 编辑 / 删除 / 重提；
+│   │                   # tags 标签列表；admin/posts 审核流转（approve / reject / takedown / restore）
+│   ├── dto/            # 入参：CreatePostDTO、AuditReasonDTO
+│   ├── vo/             # 出参：PostCreateVO / PostDetailVO / PostSummaryVO / PostAuditVO / TagVO / ImageItemVO
 │   ├── entity/         # PostDO / PostImageDO / PostTagDO / TagDO
 │   ├── mapper/         # 四个 MyBatis-Plus Mapper
 │   └── service/        # FileService、PostService、TagService 接口
 │       └── impl/       # FileServiceImpl：最小校验 + 服务端生成对象名
-│                       # PostServiceImpl：发帖事务 + 详情 / 作者帖子游标列表
+│                       # PostServiceImpl：发帖 / 编辑 / 删除 / 重提 / 审核事务 + 详情 / 游标列表
 │                       # TagServiceImpl：标签关键字查询 + limit 夹取
 ├── feed/
 │   ├── controller/     # GET /feed/follow 关注流
 │   └── service/        # FeedService 接口
 │       └── impl/       # FeedServiceImpl：读关注关系后委托 PostService 查公开帖子
 └── user/
-    ├── controller/     # auth/sms-code|login|logout；users/me GET / PATCH
+    ├── controller/     # auth/sms-code|login|logout；users/me GET / PATCH；
+    │                   # users/{userId}/follow POST / DELETE；followers / following 列表
     ├── dto/            # 入参：LoginRequest、SmsCodeRequest、UpdateProfileDTO
-    ├── vo/             # 出参：SelfProfileVO、UserBriefVO 等
+    ├── vo/             # 出参：SelfProfileVO、UserBriefVO、FollowResultVO、FollowUserVO 等
     ├── entity/         # UserDO / UserFollowDO
     ├── mapper/         # UserMapper / UserFollowMapper
     └── service/        # AuthService、UserService 接口
         └── impl/       # AuthServiceImpl：登录 / 自动注册
-                        # UserServiceImpl：本人资料 / 作者摘要 / 关注关系查询
+                        # UserServiceImpl：本人资料 / 作者摘要 / 关注 / 取关 / 粉丝与关注列表
 ```
 
 - **Service 约定**：业务 Service 统一「接口 + `impl` 实现」，接口放 `service/`，实现放
@@ -155,8 +157,72 @@ curl -s 'http://localhost:8080/api/v1/feed/follow?size=20' \
 ```
 
 - 当前为读时拉取：查 `t_user_follow` 得到关注作者，再按作者集合查公开帖子；未关注任何人时返回空页；
-- 坏游标按首页处理，`size` 默认 20、越界夹到 1~50；暂不接 Redis 收件箱与热榜兜底；
-- 关注接口尚未实现，联调时可先向 `t_user_follow` 插入关注关系。
+- 坏游标按首页处理，`size` 默认 20、越界夹到 1~50；暂不接 Redis 收件箱与热榜兜底。
+
+## 验证关注 / 取关与粉丝列表
+
+```bash
+# 关注（重复关注幂等，返回最新粉丝数）
+curl -s -X POST http://localhost:8080/api/v1/users/<userId>/follow \
+  -H "Authorization: Bearer <accessToken>"
+
+# 取关（未关注时同样返回 200，following=false）
+curl -s -X DELETE http://localhost:8080/api/v1/users/<userId>/follow \
+  -H "Authorization: Bearer <accessToken>"
+
+# 粉丝 / 关注列表：created_at DESC, id DESC；坏游标按首页，size 默认 20、夹取 1~50
+curl -s 'http://localhost:8080/api/v1/users/<userId>/followers?size=20' \
+  -H "Authorization: Bearer <accessToken>"
+curl -s 'http://localhost:8080/api/v1/users/<userId>/following?size=20' \
+  -H "Authorization: Bearer <accessToken>"
+```
+
+- 关注关系写 `t_user_follow`，粉丝 / 关注数在同一 MySQL 事务内用 `IF(col > 0, col - 1, 0)` 递减，
+  重复关注由唯一键兜底，不额外加锁；
+- 不能关注自己（`40001`）；目标用户不存在或已封禁统一返回 `40401`；
+- 列表项带 `isFollowing`，方便按钮直接渲染当前用户是否已关注。
+
+## 验证帖子编辑 / 删除 / 重提
+
+```bash
+# 编辑：整体替换标题 / 正文 / 图片 / 标签，状态回到 0（待审核）并清空审核信息
+curl -s -X PUT http://localhost:8080/api/v1/posts/<postId> \
+  -H "Authorization: Bearer <accessToken>" \
+  -H 'Content-Type: application/json' \
+  -d '{"title":"新标题","content":"新正文","imageUrls":["<imageUrl>"],"tagIds":["1"]}'
+
+# 删除：软删除，幂等 204
+curl -s -X DELETE http://localhost:8080/api/v1/posts/<postId> \
+  -H "Authorization: Bearer <accessToken>"
+
+# 重提：仅审核拒绝（status=2）可重新提交，状态回到 0
+curl -s -X POST http://localhost:8080/api/v1/posts/<postId>/resubmit \
+  -H "Authorization: Bearer <accessToken>"
+```
+
+- 编辑采用整体替换，图片 / 标签在同一事务内先删后插；`status=3`（已下架）不可编辑，返回 `40901`；
+- 删除为终态软删除，重复删除直接返回 204；非作者操作返回 `40301`；
+- 仅 `status=2` 可重提，其他状态返回 `40901`。
+
+## 验证管理端审核
+
+```bash
+# 通过 / 拒绝 / 下架 / 恢复（需管理员 Token；reason 仅 reject / takedown 必填）
+curl -s -X POST http://localhost:8080/api/v1/admin/posts/<postId>/approve \
+  -H "Authorization: Bearer <adminToken>"
+curl -s -X POST http://localhost:8080/api/v1/admin/posts/<postId>/reject \
+  -H "Authorization: Bearer <adminToken>" \
+  -H 'Content-Type: application/json' -d '{"reason":"配图与正文不符"}'
+curl -s -X POST http://localhost:8080/api/v1/admin/posts/<postId>/takedown \
+  -H "Authorization: Bearer <adminToken>" \
+  -H 'Content-Type: application/json' -d '{"reason":"涉嫌广告"}'
+curl -s -X POST http://localhost:8080/api/v1/admin/posts/<postId>/restore \
+  -H "Authorization: Bearer <adminToken>"
+```
+
+- 状态机：approve `0→1`、reject `0→2`、takedown `0/1→3`、restore `3→1`；重复 approve 幂等；
+- 状态已变化返回 `40904`，管理员审核自己的帖子返回 `40303`，原因超过 200 字符返回 `40001`；
+- 四个接口统一返回 `PostAudit`（id / status / statusText / auditReason / publishedAt / auditedAt / auditedBy）。
 
 ## 测试
 
@@ -164,12 +230,14 @@ curl -s 'http://localhost:8080/api/v1/feed/follow?size=20' \
 mvn test
 ```
 
-当前 48 个单元测试：JWT、`UserServiceImpl`、`FileServiceImpl`、`PostServiceImpl`、`TagServiceImpl`、`FeedServiceImpl`；
-接 Testcontainers 后补 MySQL / Redis / RabbitMQ / OSS 集成测试与 ArchUnit 模块边界测试。
+当前 73 个单元测试：JWT、`UserServiceImpl`、`FileServiceImpl`、`PostServiceImpl`、`TagServiceImpl`、`FeedServiceImpl`；
+涉及 MyBatis-Plus 更新条件的用例在 `@BeforeAll` 注册实体的 `TableInfo`；接 Testcontainers 后补
+MySQL / Redis / RabbitMQ / OSS 集成测试与 ArchUnit 模块边界测试。
 
 ## 待办
 
-- 帖子编辑 / 删除 / 重新提交；关注 / 取关接口；
+- 用户主页 `GET /users/{userId}`、用户帖子列表、我的帖子列表；
+- 管理端帖子列表 / 详情 / 情感分析；
 - Feed 写扩散、Redis 收件箱、热榜与推荐流；
 - OSS 直传（预签名 URL）、magic bytes 校验、图片内容审核（演进）；
 - DeepSeek / ES 的配置与实现（按 M1/M2）；

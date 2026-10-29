@@ -6,9 +6,11 @@ import com.glimmer.content.service.PostService;
 import com.glimmer.content.vo.PostCreateVO;
 import com.glimmer.content.vo.PostDetailVO;
 import org.springframework.http.HttpStatus;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
@@ -46,5 +48,38 @@ public class PostController {
     @GetMapping("/{postId}")
     public Result<PostDetailVO> detail(@PathVariable String postId) {
         return Result.ok(postService.getDetail(postId));
+    }
+
+    /**
+     * 编辑帖子（需登录，仅作者本人）。
+     *
+     * <p>全量替换标题、正文、图片与标签；编辑后状态回到 0 待审核并清空审核信息。
+     * 已下架帖子不可编辑。
+     */
+    @PutMapping("/{postId}")
+    public Result<PostDetailVO> update(@PathVariable String postId,
+                                       @RequestBody CreatePostDTO request) {
+        return Result.ok(postService.update(postId, request));
+    }
+
+    /**
+     * 删除帖子（需登录，仅作者本人）。
+     *
+     * <p>软删除，重复删除幂等返回 204。
+     */
+    @DeleteMapping("/{postId}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void delete(@PathVariable String postId) {
+        postService.delete(postId);
+    }
+
+    /**
+     * 重新提交审核（需登录，仅作者本人）。
+     *
+     * <p>不修改内容，仅审核拒绝（status=2）的帖子可重提；成功后回到 0 待审核。
+     */
+    @PostMapping("/{postId}/resubmit")
+    public Result<PostCreateVO> resubmit(@PathVariable String postId) {
+        return Result.ok(postService.resubmit(postId));
     }
 }
