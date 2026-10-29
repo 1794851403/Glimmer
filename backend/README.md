@@ -16,10 +16,14 @@ src/main/java/com/glimmer/
 │   ├── storage/        # OssStorageService：后端中转 OSS 上传
 │   └── web/            # TraceId、UserContext
 ├── content/
-│   ├── controller/     # files/images 图片上传
-│   ├── dto/
-│   └── service/        # FileService 接口
+│   ├── controller/     # files/images 图片上传；posts 发帖
+│   ├── dto/            # 入参：CreatePostDTO
+│   ├── vo/             # 出参：PostCreateVO
+│   ├── entity/         # PostDO / PostImageDO / PostTagDO / TagDO
+│   ├── mapper/         # 四个 MyBatis-Plus Mapper
+│   └── service/        # FileService、PostService 接口
 │       └── impl/       # FileServiceImpl：最小校验 + 服务端生成对象名
+│                       # PostServiceImpl：最小校验 + 帖子/图片/标签同事务
 └── user/
     ├── controller/     # auth/sms-code|login|logout；users/me GET / PATCH
     ├── dto/            # 入参：LoginRequest、SmsCodeRequest、UpdateProfileDTO
@@ -106,18 +110,34 @@ curl -s -X POST http://localhost:8080/api/v1/files/images \
   `OSS_ACCESS_KEY_SECRET`；桶保持私有但需关闭「阻止公共访问」，后端会在上传时通过对象 ACL
   把单个对象设为 `public-read`。
 
+## 验证发帖
+
+```bash
+# 先上传图片拿到 URL，再发帖；tagIds 可省略（暂不打标签）
+curl -s -X POST http://localhost:8080/api/v1/posts \
+  -H "Authorization: Bearer <accessToken>" \
+  -H 'Content-Type: application/json' \
+  -d '{"title":"周末去山里露营","content":"第一次在秋天露营，夜里能看到银河。","imageUrls":["<imageUrl>"],"tagIds":["1"]}'
+```
+
+- 成功返回 HTTP 201，`data` 含 `id / status / statusText / publishedAt / message`；
+- 普通用户 `status=0`（已发布待审核），管理员 `status=1`（已发布）；
+- 校验只保留最小必要项：标题 1~100 字符、正文 1~20,000 字符、图片 1~9 张且每张 ≤512 字符、
+  标签 0~5 个且必须存在；不校验图片 URL 协议与归属；
+- 当前只落 MySQL（帖子 / 图片 / 标签同一事务）；Feed 写扩散、ES 索引与 AI 打标随后续模块接入。
+
 ## 测试
 
 ```bash
 mvn test
 ```
 
-当前 20 个单元测试：JWT、`UserServiceImpl`、`FileServiceImpl`；
+当前 31 个单元测试：JWT、`UserServiceImpl`、`FileServiceImpl`、`PostServiceImpl`；
 接 Testcontainers 后补 MySQL / Redis / RabbitMQ / OSS 集成测试与 ArchUnit 模块边界测试。
 
 ## 待办
 
-- 发帖、Feed / 详情纵向链路；
+- Feed / 帖子详情 / 编辑删除纵向链路；
 - OSS 直传（预签名 URL）、magic bytes 校验、图片内容审核（演进）；
 - DeepSeek / ES 的配置与实现（按 M1/M2）；
 - ArchUnit、Testcontainers、CI。
