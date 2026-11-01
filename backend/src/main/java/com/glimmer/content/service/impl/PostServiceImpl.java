@@ -2,6 +2,7 @@ package com.glimmer.content.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
+import com.glimmer.common.api.CursorCodec;
 import com.glimmer.common.api.CursorPage;
 import com.glimmer.common.exception.BizException;
 import com.glimmer.common.exception.ErrorCode;
@@ -30,11 +31,9 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
 import java.nio.charset.StandardCharsets;
-import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.ArrayList;
-import java.util.Base64;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.LinkedHashSet;
@@ -247,38 +246,19 @@ public class PostServiceImpl implements PostService {
                 ? DEFAULT_PAGE_SIZE
                 : Math.max(1, Math.min(rawSize, MAX_PAGE_SIZE));
 
-        // 解析游标；游标对客户端不透明，坏游标按首页处理
-        LocalDateTime parsedTime = null;
-        Long parsedId = null;
-        if (StringUtils.hasText(rawCursor)) {
-            try {
-                String text = new String(Base64.getUrlDecoder().decode(rawCursor.strip()), StandardCharsets.UTF_8);
-                String[] parts = text.split(":", 2);
-                if (parts.length == 2) {
-                    long millis = Long.parseLong(parts[0]);
-                    long id = Long.parseLong(parts[1]);
-                    if (millis >= 0 && id > 0) {
-                        parsedTime = LocalDateTime.ofInstant(Instant.ofEpochMilli(millis), ZONE);
-                        parsedId = id;
-                    }
-                }
-            } catch (RuntimeException e) {
-                // 坏游标按首页处理，不额外报参数错误
-            }
-        }
-        final LocalDateTime cursorTime = parsedTime;
-        final Long cursorId = parsedId;
+        // 坏游标按首页处理
+        CursorCodec.CursorValue cursor = CursorCodec.decode(rawCursor);
 
         LambdaQueryWrapper<PostDO> query = new LambdaQueryWrapper<PostDO>()
                 .in(PostDO::getUserId, ids)
                 .in(PostDO::getStatus, List.of(0, 1))
                 .eq(PostDO::getIsDeleted, 0);
-        if (cursorTime != null) {
+        if (cursor != null) {
             query.and(wrapper -> wrapper
-                    .lt(PostDO::getPublishedAt, cursorTime)
+                    .lt(PostDO::getPublishedAt, cursor.time())
                     .or(sameTime -> sameTime
-                            .eq(PostDO::getPublishedAt, cursorTime)
-                            .lt(PostDO::getId, cursorId)));
+                            .eq(PostDO::getPublishedAt, cursor.time())
+                            .lt(PostDO::getId, cursor.id())));
         }
         query.orderByDesc(PostDO::getPublishedAt)
                 .orderByDesc(PostDO::getId)
@@ -376,11 +356,7 @@ public class PostServiceImpl implements PostService {
         String nextCursor = null;
         if (hasMore) {
             PostDO last = rows.get(rows.size() - 1);
-            if (last.getPublishedAt() != null && last.getId() != null) {
-                String raw = epochMillis(last.getPublishedAt()) + ":" + last.getId();
-                nextCursor = Base64.getUrlEncoder().withoutPadding()
-                        .encodeToString(raw.getBytes(StandardCharsets.UTF_8));
-            }
+            nextCursor = CursorCodec.encode(last.getPublishedAt(), last.getId());
         }
         return new CursorPage<>(items, nextCursor, hasMore);
     }
