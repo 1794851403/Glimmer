@@ -54,13 +54,28 @@ public class FileServiceImpl implements FileService {
             throw new BizException(ErrorCode.UPLOAD_TOO_LARGE);
         }
 
-        String extension = extensionOf(file.getOriginalFilename());
+        String originalFilename = file.getOriginalFilename();
+        String extension = "";
+        if (originalFilename != null) {
+            int dot = originalFilename.lastIndexOf('.');
+            if (dot >= 0 && dot < originalFilename.length() - 1) {
+                extension = originalFilename.substring(dot + 1).toLowerCase(Locale.ROOT);
+            }
+        }
         if (!ALLOWED_EXTENSIONS.contains(extension)) {
             throw new BizException(ErrorCode.UPLOAD_TYPE_NOT_ALLOWED);
         }
 
-        String contentType = contentTypeOf(extension);
-        String objectName = objectName(extension);
+        String contentType = switch (extension) {
+            case "jpg", "jpeg" -> "image/jpeg";
+            case "png" -> "image/png";
+            case "webp" -> "image/webp";
+            default -> "application/octet-stream";
+        };
+
+        String date = LocalDate.now(ZONE).format(DATE_PATH);
+        String uuid = UUID.randomUUID().toString().replace("-", "");
+        String objectName = "images/" + UserContext.userId() + "/" + date + "/" + uuid + "." + extension;
 
         byte[] content;
         try {
@@ -72,31 +87,5 @@ public class FileServiceImpl implements FileService {
 
         String url = ossStorageService.upload(content, objectName, contentType);
         return new ImageUploadResponse(url, file.getSize(), contentType);
-    }
-
-    private String objectName(String extension) {
-        String date = LocalDate.now(ZONE).format(DATE_PATH);
-        String uuid = UUID.randomUUID().toString().replace("-", "");
-        return "images/" + UserContext.userId() + "/" + date + "/" + uuid + "." + extension;
-    }
-
-    private String extensionOf(String originalFilename) {
-        if (originalFilename == null) {
-            return "";
-        }
-        int dot = originalFilename.lastIndexOf('.');
-        if (dot < 0 || dot == originalFilename.length() - 1) {
-            return "";
-        }
-        return originalFilename.substring(dot + 1).toLowerCase(Locale.ROOT);
-    }
-
-    private String contentTypeOf(String extension) {
-        return switch (extension) {
-            case "jpg", "jpeg" -> "image/jpeg";
-            case "png" -> "image/png";
-            case "webp" -> "image/webp";
-            default -> "application/octet-stream";
-        };
     }
 }

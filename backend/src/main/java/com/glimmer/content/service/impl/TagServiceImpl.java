@@ -42,18 +42,15 @@ public class TagServiceImpl implements TagService {
         if (StringUtils.hasText(normalizedKeyword)) {
             query.like(TagDO::getName, normalizedKeyword);
         }
+
+        int actualLimit = limit == null
+                ? DEFAULT_LIMIT
+                : Math.max(1, Math.min(limit, MAX_LIMIT));
         query.orderByAsc(TagDO::getId)
-                .last("LIMIT " + normalizeLimit(limit));
+                .last("LIMIT " + actualLimit);
 
         return tagMapper.selectList(query).stream()
                 .map(TagVO::from)
                 .toList();
-    }
-
-    private int normalizeLimit(Integer limit) {
-        if (limit == null) {
-            return DEFAULT_LIMIT;
-        }
-        return Math.max(1, Math.min(limit, MAX_LIMIT));
     }
 }

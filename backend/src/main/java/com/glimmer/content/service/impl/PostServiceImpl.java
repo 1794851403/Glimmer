@@ -37,7 +37,6 @@ import java.util.ArrayList;
 import java.util.Base64;
 import java.util.Collection;
 import java.util.HashMap;
-import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -244,18 +243,42 @@ public class PostServiceImpl implements PostService {
             return CursorPage.empty();
         }
 
-        int size = normalizePageSize(rawSize);
-        PostCursor cursor = decodeCursor(rawCursor);
+        int size = rawSize == null
+                ? DEFAULT_PAGE_SIZE
+                : Math.max(1, Math.min(rawSize, MAX_PAGE_SIZE));
+
+        // 解析游标；游标对客户端不透明，坏游标按首页处理
+        LocalDateTime parsedTime = null;
+        Long parsedId = null;
+        if (StringUtils.hasText(rawCursor)) {
+            try {
+                String text = new String(Base64.getUrlDecoder().decode(rawCursor.strip()), StandardCharsets.UTF_8);
+                String[] parts = text.split(":", 2);
+                if (parts.length == 2) {
+                    long millis = Long.parseLong(parts[0]);
+                    long id = Long.parseLong(parts[1]);
+                    if (millis >= 0 && id > 0) {
+                        parsedTime = LocalDateTime.ofInstant(Instant.ofEpochMilli(millis), ZONE);
+                        parsedId = id;
+                    }
+                }
+            } catch (RuntimeException e) {
+                // 坏游标按首页处理，不额外报参数错误
+            }
+        }
+        final LocalDateTime cursorTime = parsedTime;
+        final Long cursorId = parsedId;
+
         LambdaQueryWrapper<PostDO> query = new LambdaQueryWrapper<PostDO>()
                 .in(PostDO::getUserId, ids)
                 .in(PostDO::getStatus, List.of(0, 1))
                 .eq(PostDO::getIsDeleted, 0);
-        if (cursor != null) {
+        if (cursorTime != null) {
             query.and(wrapper -> wrapper
-                    .lt(PostDO::getPublishedAt, cursor.publishedAt())
+                    .lt(PostDO::getPublishedAt, cursorTime)
                     .or(sameTime -> sameTime
-                            .eq(PostDO::getPublishedAt, cursor.publishedAt())
-                            .lt(PostDO::getId, cursor.id())));
+                            .eq(PostDO::getPublishedAt, cursorTime)
+                            .lt(PostDO::getId, cursorId)));
         }
         query.orderByDesc(PostDO::getPublishedAt)
                 .orderByDesc(PostDO::getId)
@@ -270,8 +293,95 @@ public class PostServiceImpl implements PostService {
             return CursorPage.empty();
         }
 
-        List<PostSummaryVO> items = toSummaries(rows);
-        String nextCursor = hasMore ? encodeCursor(rows.get(rows.size() - 1)) : null;
+        // 批量补图片、标签和作者，避免逐条查询
+        List<Long> postIds = rows.stream().map(PostDO::getId).filter(Objects::nonNull).toList();
+
+        Map<Long, List<ImageItemVO>> imagesByPost = new HashMap<>();
+        if (!postIds.isEmpty()) {
+            List<PostImageDO> images = safeList(postImageMapper.selectList(
+                    new LambdaQueryWrapper<PostImageDO>()
+                            .in(PostImageDO::getPostId, postIds)
+                            .orderByAsc(PostImageDO::getSortOrder)
+                            .orderByAsc(PostImageDO::getId)));
+            for (PostImageDO image : images) {
+                if (image.getPostId() != null) {
+                    imagesByPost.computeIfAbsent(image.getPostId(), key -> new ArrayList<>())
+                            .add(ImageItemVO.from(image));
+                }
+            }
+        }
+
+        Map<Long, List<Long>> tagIdsByPost = new HashMap<>();
+        if (!postIds.isEmpty()) {
+            List<PostTagDO> links = safeList(postTagMapper.selectList(
+                    new LambdaQueryWrapper<PostTagDO>()
+                            .in(PostTagDO::getPostId, postIds)
+                            .orderByAsc(PostTagDO::getId)));
+            for (PostTagDO link : links) {
+                if (link.getPostId() != null && link.getTagId() != null) {
+                    tagIdsByPost.computeIfAbsent(link.getPostId(), key -> new ArrayList<>())
+                            .add(link.getTagId());
+                }
+            }
+        }
+
+        List<Long> allTagIds = tagIdsByPost.values().stream()
+                .flatMap(Collection::stream)
+                .distinct()
+                .toList();
+        Map<Long, TagVO> tagsById = new HashMap<>();
+        if (!allTagIds.isEmpty()) {
+            for (TagDO tag : safeList(tagMapper.selectBatchIds(allTagIds))) {
+                if (tag.getId() != null) {
+                    tagsById.put(tag.getId(), TagVO.from(tag));
+                }
+            }
+        }
+
+        List<Long> authorIdsForPage = rows.stream()
+                .map(PostDO::getUserId)
+                .filter(Objects::nonNull)
+                .distinct()
+                .toList();
+        Map<Long, UserBriefVO> authors = userService.getBriefs(authorIdsForPage);
+        if (authors == null) {
+            authors = Map.of();
+        }
+
+        List<PostSummaryVO> items = new ArrayList<>(rows.size());
+        for (PostDO post : rows) {
+            List<ImageItemVO> images = imagesByPost.getOrDefault(post.getId(), List.of());
+            List<TagVO> tags = tagIdsByPost.getOrDefault(post.getId(), List.of()).stream()
+                    .map(tagsById::get)
+                    .filter(Objects::nonNull)
+                    .toList();
+            UserBriefVO author = authors.getOrDefault(post.getUserId(),
+                    UserBriefVO.placeholder(post.getUserId()));
+            items.add(new PostSummaryVO(
+                    String.valueOf(post.getId()),
+                    post.getTitle(),
+                    images.isEmpty() ? "" : images.get(0).url(),
+                    author,
+                    tags,
+                    value(post.getLikeCount()),
+                    value(post.getCommentCount()),
+                    value(post.getCollectCount()),
+                    value(post.getViewCount()),
+                    epochMillis(post.getPublishedAt()),
+                    false,
+                    false
+            ));
+        }
+
+        String nextCursor = null;
+        if (hasMore) {
+            PostDO last = rows.get(rows.size() - 1);
+            if (last.getPublishedAt() != null && last.getId() != null) {
+                String raw = epochMillis(last.getPublishedAt()) + ":" + last.getId();
+                nextCursor = Base64.getUrlEncoder().withoutPadding()
+                        .encodeToString(raw.getBytes(StandardCharsets.UTF_8));
+            }
+        }
         return new CursorPage<>(items, nextCursor, hasMore);
     }
 
@@ -479,7 +589,19 @@ public class PostServiceImpl implements PostService {
     }
 
     private PostDO requireAuditablePost(String rawPostId) {
-        Long postId = parseAdminPostId(rawPostId);
+        if (!StringUtils.hasText(rawPostId)) {
+            throw new BizException(ErrorCode.NOT_FOUND);
+        }
+        long postId;
+        try {
+            postId = Long.parseLong(rawPostId.strip());
+        } catch (NumberFormatException e) {
+            throw new BizException(ErrorCode.NOT_FOUND);
+        }
+        if (postId <= 0) {
+            throw new BizException(ErrorCode.NOT_FOUND);
+        }
+
         PostDO post = postMapper.selectById(postId);
         if (post == null || isDeleted(post)) {
             throw new BizException(ErrorCode.NOT_FOUND);
@@ -523,104 +645,6 @@ public class PostServiceImpl implements PostService {
             postTag.setSource(0);
             postTagMapper.insert(postTag);
         }
-    }
-
-    private List<PostSummaryVO> toSummaries(List<PostDO> posts) {
-        List<Long> postIds = posts.stream().map(PostDO::getId).filter(Objects::nonNull).toList();
-        Map<Long, List<ImageItemVO>> imagesByPost = loadImagesByPost(postIds);
-        Map<Long, List<Long>> tagIdsByPost = loadTagIdsByPost(postIds);
-        List<Long> allTagIds = tagIdsByPost.values().stream()
-                .flatMap(Collection::stream)
-                .distinct()
-                .toList();
-        Map<Long, TagVO> tagsById = loadTagsById(allTagIds);
-        List<Long> authorIds = posts.stream()
-                .map(PostDO::getUserId)
-                .filter(Objects::nonNull)
-                .distinct()
-                .toList();
-        Map<Long, UserBriefVO> authors = userService.getBriefs(authorIds);
-        if (authors == null) {
-            authors = Map.of();
-        }
-
-        List<PostSummaryVO> items = new ArrayList<>(posts.size());
-        for (PostDO post : posts) {
-            List<ImageItemVO> images = imagesByPost.getOrDefault(post.getId(), List.of());
-            List<TagVO> tags = tagIdsByPost.getOrDefault(post.getId(), List.of()).stream()
-                    .map(tagsById::get)
-                    .filter(Objects::nonNull)
-                    .toList();
-            UserBriefVO author = authors.getOrDefault(post.getUserId(),
-                    UserBriefVO.placeholder(post.getUserId()));
-            items.add(new PostSummaryVO(
-                    String.valueOf(post.getId()),
-                    post.getTitle(),
-                    images.isEmpty() ? "" : images.get(0).url(),
-                    author,
-                    tags,
-                    value(post.getLikeCount()),
-                    value(post.getCommentCount()),
-                    value(post.getCollectCount()),
-                    value(post.getViewCount()),
-                    epochMillis(post.getPublishedAt()),
-                    false,
-                    false
-            ));
-        }
-        return items;
-    }
-
-    private Map<Long, List<ImageItemVO>> loadImagesByPost(List<Long> postIds) {
-        if (postIds.isEmpty()) {
-            return Map.of();
-        }
-        List<PostImageDO> rows = postImageMapper.selectList(new LambdaQueryWrapper<PostImageDO>()
-                .in(PostImageDO::getPostId, postIds)
-                .orderByAsc(PostImageDO::getSortOrder)
-                .orderByAsc(PostImageDO::getId));
-        Map<Long, List<ImageItemVO>> result = new HashMap<>();
-        for (PostImageDO row : safeList(rows)) {
-            if (row.getPostId() != null) {
-                result.computeIfAbsent(row.getPostId(), key -> new ArrayList<>())
-                        .add(ImageItemVO.from(row));
-            }
-        }
-        return result;
-    }
-
-    private Map<Long, List<Long>> loadTagIdsByPost(List<Long> postIds) {
-        if (postIds.isEmpty()) {
-            return Map.of();
-        }
-        List<PostTagDO> rows = postTagMapper.selectList(new LambdaQueryWrapper<PostTagDO>()
-                .in(PostTagDO::getPostId, postIds)
-                .orderByAsc(PostTagDO::getId));
-        Map<Long, List<Long>> result = new HashMap<>();
-        for (PostTagDO row : safeList(rows)) {
-            if (row.getPostId() != null && row.getTagId() != null) {
-                result.computeIfAbsent(row.getPostId(), key -> new ArrayList<>())
-                        .add(row.getTagId());
-            }
-        }
-        return result;
-    }
-
-    private Map<Long, TagVO> loadTagsById(Collection<Long> tagIds) {
-        List<Long> ids = tagIds == null
-                ? List.of()
-                : tagIds.stream().filter(Objects::nonNull).distinct().toList();
-        if (ids.isEmpty()) {
-            return Map.of();
-        }
-        List<TagDO> rows = tagMapper.selectBatchIds(ids);
-        Map<Long, TagVO> result = new LinkedHashMap<>();
-        for (TagDO tag : safeList(rows)) {
-            if (tag.getId() != null) {
-                result.put(tag.getId(), TagVO.from(tag));
-            }
-        }
-        return result;
     }
 
     private String normalizeTitle(String raw) {
@@ -724,62 +748,6 @@ public class PostServiceImpl implements PostService {
         }
     }
 
-    private Long parseAdminPostId(String raw) {
-        if (!StringUtils.hasText(raw)) {
-            throw new BizException(ErrorCode.NOT_FOUND);
-        }
-        try {
-            long id = Long.parseLong(raw.strip());
-            if (id <= 0) {
-                throw new BizException(ErrorCode.NOT_FOUND);
-            }
-            return id;
-        } catch (NumberFormatException e) {
-            throw new BizException(ErrorCode.NOT_FOUND);
-        }
-    }
-
-    private int normalizePageSize(Integer size) {
-        if (size == null) {
-            return DEFAULT_PAGE_SIZE;
-        }
-        return Math.max(1, Math.min(size, MAX_PAGE_SIZE));
-    }
-
-    private String encodeCursor(PostDO post) {
-        if (post.getPublishedAt() == null || post.getId() == null) {
-            return null;
-        }
-        String raw = epochMillis(post.getPublishedAt()) + ":" + post.getId();
-        return Base64.getUrlEncoder().withoutPadding()
-                .encodeToString(raw.getBytes(StandardCharsets.UTF_8));
-    }
-
-    private PostCursor decodeCursor(String raw) {
-        if (!StringUtils.hasText(raw)) {
-            return null;
-        }
-        try {
-            String text = new String(Base64.getUrlDecoder().decode(raw.strip()), StandardCharsets.UTF_8);
-            String[] parts = text.split(":", 2);
-            if (parts.length != 2) {
-                return null;
-            }
-            long millis = Long.parseLong(parts[0]);
-            long id = Long.parseLong(parts[1]);
-            if (millis < 0 || id <= 0) {
-                return null;
-            }
-            return new PostCursor(
-                    LocalDateTime.ofInstant(Instant.ofEpochMilli(millis), ZONE),
-                    id
-            );
-        } catch (RuntimeException e) {
-            // 游标对客户端不透明，坏游标按首页处理，不额外报参数错误。
-            return null;
-        }
-    }
-
     private boolean isDeleted(PostDO post) {
         return post.getIsDeleted() != null && post.getIsDeleted() == 1;
     }
@@ -806,8 +774,5 @@ public class PostServiceImpl implements PostService {
 
     private BizException notVisible() {
         return new BizException(ErrorCode.POST_NOT_VISIBLE);
-    }
-
-    private record PostCursor(LocalDateTime publishedAt, Long id) {
     }
 }

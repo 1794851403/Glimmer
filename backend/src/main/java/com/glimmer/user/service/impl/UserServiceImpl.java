@@ -87,11 +87,55 @@ public class UserServiceImpl implements UserService {
             throw new BizException(ErrorCode.INVALID_PARAM, "至少提供一个待修改字段");
         }
 
+        // 昵称去首尾空白后校验长度；空白昵称按内容非法处理
+        String nickname = request.nickname();
+        if (nickname != null) {
+            nickname = nickname.strip();
+            int length = nickname.codePointCount(0, nickname.length());
+            if (length < NICKNAME_MIN || length > NICKNAME_MAX) {
+                throw new BizException(ErrorCode.CONTENT_INVALID,
+                        "昵称长度需为 " + NICKNAME_MIN + "~" + NICKNAME_MAX + " 个字符");
+            }
+        }
+
+        // 头像只校验 http(s) URL 与长度；「必须是已上传图片」等上传模块落地后再收紧
+        String avatarUrl = request.avatarUrl();
+        if (avatarUrl != null) {
+            avatarUrl = avatarUrl.strip();
+            if (avatarUrl.isEmpty()) {
+                throw new BizException(ErrorCode.INVALID_PARAM, "头像 URL 不能为空");
+            }
+            if (avatarUrl.codePointCount(0, avatarUrl.length()) > AVATAR_MAX) {
+                throw new BizException(ErrorCode.INVALID_PARAM,
+                        "头像 URL 不能超过 " + AVATAR_MAX + " 个字符");
+            }
+            boolean isHttpUrl;
+            try {
+                URI uri = URI.create(avatarUrl);
+                String scheme = uri.getScheme();
+                isHttpUrl = scheme != null
+                        && ("http".equalsIgnoreCase(scheme) || "https".equalsIgnoreCase(scheme))
+                        && uri.getHost() != null;
+            } catch (IllegalArgumentException e) {
+                isHttpUrl = false;
+            }
+            if (!isHttpUrl) {
+                throw new BizException(ErrorCode.INVALID_PARAM, "头像 URL 格式错误");
+            }
+        }
+
+        // 简介允许空字符串（清空）；只限制长度，不做 trim，保留用户原始内容
+        String bio = request.bio();
+        if (bio != null && bio.codePointCount(0, bio.length()) > BIO_MAX) {
+            throw new BizException(ErrorCode.CONTENT_INVALID,
+                    "个人简介不能超过 " + BIO_MAX + " 个字符");
+        }
+
         UserDO patch = new UserDO();
         patch.setId(UserContext.userId());
-        patch.setNickname(normalizeNickname(request.nickname()));
-        patch.setAvatarUrl(normalizeAvatarUrl(request.avatarUrl()));
-        patch.setBio(normalizeBio(request.bio()));
+        patch.setNickname(nickname);
+        patch.setAvatarUrl(avatarUrl);
+        patch.setBio(bio);
 
         int updated = userMapper.updateById(patch);
         if (updated == 0) {
@@ -286,8 +330,31 @@ public class UserServiceImpl implements UserService {
     private CursorPage<FollowUserVO> listRelations(Long userId, boolean followers,
                                                    String rawCursor, Integer rawSize) {
         requireExistingUser(userId);
-        int size = normalizePageSize(rawSize);
-        FollowCursor cursor = decodeCursor(rawCursor);
+        int size = rawSize == null
+                ? DEFAULT_PAGE_SIZE
+                : Math.max(1, Math.min(rawSize, MAX_PAGE_SIZE));
+
+        // 解析游标；游标对客户端不透明，坏游标按首页处理
+        LocalDateTime parsedTime = null;
+        Long parsedId = null;
+        if (StringUtils.hasText(rawCursor)) {
+            try {
+                String text = new String(Base64.getUrlDecoder().decode(rawCursor.strip()), StandardCharsets.UTF_8);
+                String[] parts = text.split(":", 2);
+                if (parts.length == 2) {
+                    long millis = Long.parseLong(parts[0]);
+                    long id = Long.parseLong(parts[1]);
+                    if (millis >= 0 && id > 0) {
+                        parsedTime = LocalDateTime.ofInstant(Instant.ofEpochMilli(millis), ZONE);
+                        parsedId = id;
+                    }
+                }
+            } catch (RuntimeException e) {
+                // 坏游标按首页处理
+            }
+        }
+        final LocalDateTime cursorTime = parsedTime;
+        final Long cursorId = parsedId;
 
         LambdaQueryWrapper<UserFollowDO> query = new LambdaQueryWrapper<>();
         if (followers) {
@@ -295,12 +362,12 @@ public class UserServiceImpl implements UserService {
         } else {
             query.eq(UserFollowDO::getFollowerId, userId);
         }
-        if (cursor != null) {
+        if (cursorTime != null) {
             query.and(wrapper -> wrapper
-                    .lt(UserFollowDO::getCreatedAt, cursor.createdAt())
+                    .lt(UserFollowDO::getCreatedAt, cursorTime)
                     .or(sameTime -> sameTime
-                            .eq(UserFollowDO::getCreatedAt, cursor.createdAt())
-                            .lt(UserFollowDO::getId, cursor.id())));
+                            .eq(UserFollowDO::getCreatedAt, cursorTime)
+                            .lt(UserFollowDO::getId, cursorId)));
         }
         query.orderByDesc(UserFollowDO::getCreatedAt)
                 .orderByDesc(UserFollowDO::getId)
@@ -320,7 +387,20 @@ public class UserServiceImpl implements UserService {
                 .filter(Objects::nonNull)
                 .toList();
         Map<Long, UserBriefVO> briefs = getBriefs(userIds);
-        Set<Long> followedByViewer = viewerFollowing(userIds);
+
+        // 批量查询当前登录用户是否关注了列表中的用户，避免逐条查询
+        LoginUser viewer = UserContext.get();
+        Set<Long> followedByViewer = Set.of();
+        if (viewer != null && !userIds.isEmpty()) {
+            List<UserFollowDO> followRows = safeList(userFollowMapper.selectList(
+                    new LambdaQueryWrapper<UserFollowDO>()
+                            .eq(UserFollowDO::getFollowerId, viewer.userId())
+                            .in(UserFollowDO::getFolloweeId, userIds)));
+            followedByViewer = followRows.stream()
+                    .map(UserFollowDO::getFolloweeId)
+                    .filter(Objects::nonNull)
+                    .collect(Collectors.toSet());
+        }
 
         List<FollowUserVO> items = new ArrayList<>(rows.size());
         for (UserFollowDO row : rows) {
@@ -332,25 +412,17 @@ public class UserServiceImpl implements UserService {
             items.add(FollowUserVO.from(brief, followedByViewer.contains(id)));
         }
 
-        String nextCursor = hasMore ? encodeCursor(rows.get(rows.size() - 1)) : null;
-        return new CursorPage<>(items, nextCursor, hasMore);
-    }
-
-    /**
-     * 批量查询当前登录用户是否关注了列表中的用户，避免逐条查询。
-     */
-    private Set<Long> viewerFollowing(List<Long> userIds) {
-        LoginUser viewer = UserContext.get();
-        if (viewer == null || userIds.isEmpty()) {
-            return Set.of();
+        String nextCursor = null;
+        if (hasMore) {
+            UserFollowDO last = rows.get(rows.size() - 1);
+            if (last.getCreatedAt() != null && last.getId() != null) {
+                String raw = last.getCreatedAt().atZone(ZONE).toInstant().toEpochMilli()
+                        + ":" + last.getId();
+                nextCursor = Base64.getUrlEncoder().withoutPadding()
+                        .encodeToString(raw.getBytes(StandardCharsets.UTF_8));
+            }
         }
-        List<UserFollowDO> rows = userFollowMapper.selectList(new LambdaQueryWrapper<UserFollowDO>()
-                .eq(UserFollowDO::getFollowerId, viewer.userId())
-                .in(UserFollowDO::getFolloweeId, userIds));
-        return safeList(rows).stream()
-                .map(UserFollowDO::getFolloweeId)
-                .filter(Objects::nonNull)
-                .collect(Collectors.toSet());
+        return new CursorPage<>(items, nextCursor, hasMore);
     }
 
     private void adjustFollowCounts(Long followerId, Long followeeId, int delta) {
@@ -399,48 +471,6 @@ public class UserServiceImpl implements UserService {
         return new BizException(ErrorCode.NOT_FOUND, "用户不存在");
     }
 
-    private int normalizePageSize(Integer size) {
-        if (size == null) {
-            return DEFAULT_PAGE_SIZE;
-        }
-        return Math.max(1, Math.min(size, MAX_PAGE_SIZE));
-    }
-
-    private String encodeCursor(UserFollowDO relation) {
-        if (relation.getCreatedAt() == null || relation.getId() == null) {
-            return null;
-        }
-        String raw = relation.getCreatedAt().atZone(ZONE).toInstant().toEpochMilli()
-                + ":" + relation.getId();
-        return Base64.getUrlEncoder().withoutPadding()
-                .encodeToString(raw.getBytes(StandardCharsets.UTF_8));
-    }
-
-    private FollowCursor decodeCursor(String raw) {
-        if (!StringUtils.hasText(raw)) {
-            return null;
-        }
-        try {
-            String text = new String(Base64.getUrlDecoder().decode(raw.strip()), StandardCharsets.UTF_8);
-            String[] parts = text.split(":", 2);
-            if (parts.length != 2) {
-                return null;
-            }
-            long millis = Long.parseLong(parts[0]);
-            long id = Long.parseLong(parts[1]);
-            if (millis < 0 || id <= 0) {
-                return null;
-            }
-            return new FollowCursor(
-                    LocalDateTime.ofInstant(Instant.ofEpochMilli(millis), ZONE),
-                    id
-            );
-        } catch (RuntimeException e) {
-            // 游标对客户端不透明，坏游标按首页处理。
-            return null;
-        }
-    }
-
     private int value(Integer value) {
         return value == null ? 0 : value;
     }
@@ -457,76 +487,4 @@ public class UserServiceImpl implements UserService {
         return user;
     }
 
-    /**
-     * 昵称去首尾空白后校验长度；空白昵称按内容非法处理。
-     */
-    private String normalizeNickname(String raw) {
-        if (raw == null) {
-            return null;
-        }
-        String value = raw.strip();
-        int length = codePointLength(value);
-        if (length < NICKNAME_MIN || length > NICKNAME_MAX) {
-            throw new BizException(ErrorCode.CONTENT_INVALID,
-                    "昵称长度需为 " + NICKNAME_MIN + "~" + NICKNAME_MAX + " 个字符");
-        }
-        return value;
-    }
-
-    /**
-     * 头像只校验 http(s) URL 与长度；「必须是已上传图片」等上传模块落地后再收紧。
-     */
-    private String normalizeAvatarUrl(String raw) {
-        if (raw == null) {
-            return null;
-        }
-        String value = raw.strip();
-        if (value.isEmpty()) {
-            throw new BizException(ErrorCode.INVALID_PARAM, "头像 URL 不能为空");
-        }
-        if (codePointLength(value) > AVATAR_MAX) {
-            throw new BizException(ErrorCode.INVALID_PARAM,
-                    "头像 URL 不能超过 " + AVATAR_MAX + " 个字符");
-        }
-        if (!isHttpUrl(value)) {
-            throw new BizException(ErrorCode.INVALID_PARAM, "头像 URL 格式错误");
-        }
-        return value;
-    }
-
-    private boolean isHttpUrl(String value) {
-        try {
-            URI uri = URI.create(value);
-            String scheme = uri.getScheme();
-            return scheme != null
-                    && ("http".equalsIgnoreCase(scheme) || "https".equalsIgnoreCase(scheme))
-                    && uri.getHost() != null;
-        } catch (IllegalArgumentException e) {
-            return false;
-        }
-    }
-
-    /**
-     * 简介允许空字符串（清空）；只限制长度，不做 trim，保留用户原始内容。
-     */
-    private String normalizeBio(String raw) {
-        if (raw == null) {
-            return null;
-        }
-        if (codePointLength(raw) > BIO_MAX) {
-            throw new BizException(ErrorCode.CONTENT_INVALID,
-                    "个人简介不能超过 " + BIO_MAX + " 个字符");
-        }
-        return raw;
-    }
-
-    /**
-     * 按 Unicode 码点计数，与 MySQL VARCHAR(n) 的字符口径一致；emoji 不会被算成 2 个字符。
-     */
-    private int codePointLength(String value) {
-        return value.codePointCount(0, value.length());
-    }
-
-    private record FollowCursor(LocalDateTime createdAt, Long id) {
-    }
 }

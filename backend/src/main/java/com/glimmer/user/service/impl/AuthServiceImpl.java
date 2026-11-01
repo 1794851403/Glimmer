@@ -90,7 +90,7 @@ public class AuthServiceImpl implements AuthService {
         rateLimiter.check(RateLimitAction.SMS_CODE, phone);
 
         Boolean acquired = cacheRedisTemplate.opsForValue()
-                .setIfAbsent(resendKey(phone), "1", RESEND_INTERVAL);
+                .setIfAbsent("glimmer:auth:sms:resend:" + phone, "1", RESEND_INTERVAL);
         if (!Boolean.TRUE.equals(acquired)) {
             throw new RateLimitException(RESEND_INTERVAL.toSeconds(),
                     rateLimiter.limit(RateLimitAction.SMS_CODE));
@@ -100,7 +100,7 @@ public class AuthServiceImpl implements AuthService {
         cacheRedisTemplate.opsForValue().set(codeKey(phone), code, CODE_TTL);
         log.info("mock sms code phone={} code={}", maskPhone(phone), code);
 
-        String debugCode = debugProfile() ? code : null;
+        String debugCode = environment.acceptsProfiles(Profiles.of("local", "dev")) ? code : null;
         return new SmsCodeResponse((int) CODE_TTL.toSeconds(),
                 (int) RESEND_INTERVAL.toSeconds(), debugCode);
     }
@@ -131,7 +131,30 @@ public class AuthServiceImpl implements AuthService {
 
         UserDO user = findByPhone(phone);
         if (user == null) {
-            user = register(phone);
+            // 首次登录自动注册
+            LocalDateTime now = LocalDateTime.now();
+            UserDO newUser = new UserDO();
+            newUser.setPhone(phone);
+            newUser.setNickname("微光用户" + phone.substring(7));
+            newUser.setAvatarUrl("");
+            newUser.setBio("");
+            newUser.setRole(0);
+            newUser.setStatus(0);
+            newUser.setFollowingCount(0);
+            newUser.setFollowerCount(0);
+            newUser.setCreatedAt(now);
+            newUser.setUpdatedAt(now);
+            try {
+                userMapper.insert(newUser);
+                user = newUser;
+            } catch (DuplicateKeyException e) {
+                // 并发首次登录：另一个请求已创建，回查即可
+                UserDO existing = findByPhone(phone);
+                if (existing == null) {
+                    throw e;
+                }
+                user = existing;
+            }
         }
         if (user.getStatus() != null && user.getStatus() == 1) {
             throw new BizException(ErrorCode.ACCOUNT_BANNED);
@@ -160,42 +183,8 @@ public class AuthServiceImpl implements AuthService {
                 .eq(UserDO::getPhone, phone));
     }
 
-    private UserDO register(String phone) {
-        LocalDateTime now = LocalDateTime.now();
-        UserDO user = new UserDO();
-        user.setPhone(phone);
-        user.setNickname("微光用户" + phone.substring(7));
-        user.setAvatarUrl("");
-        user.setBio("");
-        user.setRole(0);
-        user.setStatus(0);
-        user.setFollowingCount(0);
-        user.setFollowerCount(0);
-        user.setCreatedAt(now);
-        user.setUpdatedAt(now);
-        try {
-            userMapper.insert(user);
-            return user;
-        } catch (DuplicateKeyException e) {
-            // 并发首次登录：另一个请求已创建，回查即可。
-            UserDO existing = findByPhone(phone);
-            if (existing != null) {
-                return existing;
-            }
-            throw e;
-        }
-    }
-
-    private boolean debugProfile() {
-        return environment.acceptsProfiles(Profiles.of("local", "dev"));
-    }
-
     private String codeKey(String phone) {
         return "glimmer:auth:sms:" + phone;
-    }
-
-    private String resendKey(String phone) {
-        return "glimmer:auth:sms:resend:" + phone;
     }
 
     private String maskPhone(String phone) {
