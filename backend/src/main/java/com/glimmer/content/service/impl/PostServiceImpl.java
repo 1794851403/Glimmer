@@ -121,66 +121,109 @@ public class PostServiceImpl implements PostService {
     }
 
     /**
-     * 按「公开可见 / 作者本人 / 管理员」三种视角校验可见性，再批量组装图片、标签、作者摘要
-     * 与当前用户是否关注作者；{@code liked} / {@code collected} 在互动模块接入前固定为 false。
+     * 查看帖子详情。
+     *
+     * <p>公开帖子所有人可见；作者本人可看自己未删除的 0/1/2/3；管理员可看任意未删除帖子。
+     * 审核原因与 AI 打标状态只对作者或管理员返回；{@code liked} / {@code collected} 在互动模块接入前固定为 false。
      *
      * @param rawPostId 帖子 ID，允许数字字符串
      * @return 帖子详情
      */
     @Override
     public PostDetailVO getDetail(String rawPostId) {
+        // 1. 帖子必须存在且未删除
         Long postId = parsePostId(rawPostId);
         PostDO post = postMapper.selectById(postId);
         if (post == null || isDeleted(post)) {
             throw notVisible();
         }
 
+        // 2. 公开帖子所有人可见；作者可看自己的全部状态；管理员可看任意未删除帖子
         LoginUser viewer = UserContext.get();
-        boolean author = viewer != null && Objects.equals(viewer.userId(), post.getUserId());
-        boolean admin = viewer != null && viewer.isAdmin();
+        boolean isAuthor = viewer != null && Objects.equals(viewer.userId(), post.getUserId());
+        boolean isAdmin = viewer != null && viewer.isAdmin();
         int status = statusOf(post);
-        if (!publicVisible(status) && !author && !admin) {
+        if (status != 0 && status != 1 && !isAuthor && !isAdmin) {
             throw notVisible();
         }
 
-        List<ImageItemVO> images = loadImages(postId);
-        List<TagVO> tags = loadTags(postId);
-        UserBriefVO authorBrief = userService.getBrief(post.getUserId());
-        if (authorBrief == null) {
-            authorBrief = UserBriefVO.placeholder(post.getUserId());
-        }
-        boolean followingAuthor = viewer != null
-                && !author
-                && userService.isFollowing(viewer.userId(), post.getUserId());
-        boolean privileged = author || admin;
-        String coverUrl = images.isEmpty() ? "" : images.get(0).url();
+        // 3. 查询图片，按排序号升序
+        List<ImageItemVO> images = safeList(postImageMapper.selectList(
+                        new LambdaQueryWrapper<PostImageDO>()
+                                .eq(PostImageDO::getPostId, postId)
+                                .orderByAsc(PostImageDO::getSortOrder)
+                                .orderByAsc(PostImageDO::getId)))
+                .stream()
+                .map(ImageItemVO::from)
+                .toList();
 
-        return new PostDetailVO(
-                String.valueOf(post.getId()),
-                post.getTitle(),
-                post.getContent(),
-                coverUrl,
-                images,
-                authorBrief,
-                tags,
-                status,
-                statusText(status),
-                privileged ? post.getAuditReason() : null,
-                value(post.getLikeCount()),
-                value(post.getCommentCount()),
-                value(post.getCollectCount()),
-                value(post.getViewCount()),
-                epochMillis(post.getPublishedAt()),
-                epochMillis(post.getCreatedAt()),
-                epochMillis(post.getUpdatedAt()),
-                false,
-                false,
-                followingAuthor,
-                author && status <= 2,
-                author && status == 2,
-                author,
-                privileged ? post.getAiTagStatus() : null
-        );
+        // 4. 查询标签关联，再用标签字典补名称
+        List<PostTagDO> postTags = safeList(postTagMapper.selectList(
+                new LambdaQueryWrapper<PostTagDO>()
+                        .eq(PostTagDO::getPostId, postId)
+                        .orderByAsc(PostTagDO::getId)));
+        List<Long> tagIds = postTags.stream()
+                .map(PostTagDO::getTagId)
+                .filter(Objects::nonNull)
+                .toList();
+        Map<Long, TagVO> tagMap = new HashMap<>();
+        if (!tagIds.isEmpty()) {
+            for (TagDO tag : safeList(tagMapper.selectBatchIds(tagIds))) {
+                tagMap.put(tag.getId(), TagVO.from(tag));
+            }
+        }
+        List<TagVO> tags = tagIds.stream()
+                .map(tagMap::get)
+                .filter(Objects::nonNull)
+                .toList();
+
+        // 5. 作者信息；账号不会物理删除，缺失时用占位信息兜底
+        UserBriefVO author = userService.getBrief(post.getUserId());
+        if (author == null) {
+            author = UserBriefVO.placeholder(post.getUserId());
+        }
+
+        // 6. 登录用户看别人的帖子时，补充关注状态
+        boolean isFollowingAuthor = viewer != null
+                && !isAuthor
+                && userService.isFollowing(viewer.userId(), post.getUserId());
+
+        // 7. 组装详情
+        String statusText = switch (status) {
+            case 0 -> "已发布待审核";
+            case 1 -> "已发布";
+            case 2 -> "审核拒绝";
+            case 3 -> "已下架";
+            default -> "未知状态";
+        };
+        boolean canSeeAuditInfo = isAuthor || isAdmin;
+
+        return PostDetailVO.builder()
+                .id(String.valueOf(post.getId()))
+                .title(post.getTitle())
+                .content(post.getContent())
+                .coverUrl(images.isEmpty() ? "" : images.get(0).url())
+                .images(images)
+                .author(author)
+                .tags(tags)
+                .status(status)
+                .statusText(statusText)
+                .auditReason(canSeeAuditInfo ? post.getAuditReason() : null)
+                .likeCount(value(post.getLikeCount()))
+                .commentCount(value(post.getCommentCount()))
+                .collectCount(value(post.getCollectCount()))
+                .viewCount(value(post.getViewCount()))
+                .publishedAt(epochMillis(post.getPublishedAt()))
+                .createdAt(epochMillis(post.getCreatedAt()))
+                .updatedAt(epochMillis(post.getUpdatedAt()))
+                .liked(false)       // 互动模块未接入
+                .collected(false)   // 互动模块未接入
+                .isFollowingAuthor(isFollowingAuthor)
+                .canEdit(isAuthor && status <= 2)
+                .canResubmit(isAuthor && status == 2)
+                .canDelete(isAuthor)
+                .aiTagStatus(canSeeAuditInfo ? post.getAiTagStatus() : null)
+                .build();
     }
 
     /**
@@ -528,26 +571,6 @@ public class PostServiceImpl implements PostService {
         return items;
     }
 
-    private List<ImageItemVO> loadImages(Long postId) {
-        List<PostImageDO> rows = postImageMapper.selectList(new LambdaQueryWrapper<PostImageDO>()
-                .eq(PostImageDO::getPostId, postId)
-                .orderByAsc(PostImageDO::getSortOrder)
-                .orderByAsc(PostImageDO::getId));
-        return safeList(rows).stream().map(ImageItemVO::from).toList();
-    }
-
-    private List<TagVO> loadTags(Long postId) {
-        List<PostTagDO> links = postTagMapper.selectList(new LambdaQueryWrapper<PostTagDO>()
-                .eq(PostTagDO::getPostId, postId)
-                .orderByAsc(PostTagDO::getId));
-        List<Long> tagIds = safeList(links).stream()
-                .map(PostTagDO::getTagId)
-                .filter(Objects::nonNull)
-                .toList();
-        Map<Long, TagVO> tagsById = loadTagsById(tagIds);
-        return tagIds.stream().map(tagsById::get).filter(Objects::nonNull).toList();
-    }
-
     private Map<Long, List<ImageItemVO>> loadImagesByPost(List<Long> postIds) {
         if (postIds.isEmpty()) {
             return Map.of();
@@ -757,26 +780,12 @@ public class PostServiceImpl implements PostService {
         }
     }
 
-    private boolean publicVisible(int status) {
-        return status == 0 || status == 1;
-    }
-
     private boolean isDeleted(PostDO post) {
         return post.getIsDeleted() != null && post.getIsDeleted() == 1;
     }
 
     private int statusOf(PostDO post) {
         return post.getStatus() == null ? 0 : post.getStatus();
-    }
-
-    private String statusText(int status) {
-        return switch (status) {
-            case 0 -> "已发布待审核";
-            case 1 -> "已发布";
-            case 2 -> "审核拒绝";
-            case 3 -> "已下架";
-            default -> "未知状态";
-        };
     }
 
     private int value(Integer value) {

@@ -51,6 +51,9 @@ src/main/java/com/glimmer/
   状态流转、事务 / 并发处理」，不逐字复制接口注释；路径只写在 `@RequestMapping` / `@PostMapping`
   注解里，注释不重复路径，避免改动时两处漂移。
 
+- **方法拆分约定**：ServiceImpl 的接口方法优先按「校验 → 查询 → 组装」从上到下平铺，单次使用的
+  逻辑直接写在方法内；出现第二个调用方时再抽成私有方法，不为“以后可能复用”提前封装。
+
 - **双 Redis**：`core`（noeviction + AOF，Token / 锁 / 秒杀 / 布隆）与 `cache`（allkeys-lru，详情 / Feed / 限流）。
   Spring Boot 默认 `RedisAutoConfiguration` 已排除，连接在 `RedisConfig` 显式创建。
 - **鉴权**：默认拒绝 `/api/**`；白名单按「方法 + 路径」精确匹配；JWT 之外还要校验 core 中的

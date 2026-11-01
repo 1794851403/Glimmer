@@ -3,6 +3,7 @@ package com.glimmer.content.vo;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.glimmer.user.vo.UserBriefVO;
+import lombok.Builder;
 
 import java.util.List;
 
@@ -11,6 +12,7 @@ import java.util.List;
  *
  * <p>公开访问时不返回审核原因与 AI 打标状态，因此对空字段使用 NON_NULL 省略。
  */
+@Builder
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public record PostDetailVO(
         /** 帖子 ID，以字符串序列化。 */
