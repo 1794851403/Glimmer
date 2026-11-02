@@ -2,6 +2,7 @@ package com.glimmer.content.service;
 
 import com.glimmer.common.api.CursorPage;
 import com.glimmer.content.dto.CreatePostDTO;
+import com.glimmer.content.vo.MyPostSummaryVO;
 import com.glimmer.content.vo.PostAuditVO;
 import com.glimmer.content.vo.PostCreateVO;
 import com.glimmer.content.vo.PostDetailVO;
@@ -47,6 +48,44 @@ public interface PostService {
      * @return 帖子摘要游标页
      */
     CursorPage<PostSummaryVO> listByAuthors(Collection<Long> authorIds, String cursor, Integer size);
+
+    /**
+     * 查询指定用户的公开帖子，按发布时间倒序。
+     *
+     * <p>用户不存在、ID 非法或已封禁统一返回 40401；坏游标按首页处理。
+     *
+     * @param userId 作者用户 ID，允许数字字符串
+     * @param cursor 上一页返回的 nextCursor，可为空
+     * @param size   每页数量，默认 20，越界自动夹到 1~50
+     * @return 帖子摘要游标页
+     */
+    CursorPage<PostSummaryVO> listByAuthor(String userId, String cursor, Integer size);
+
+    /**
+     * 查询全站最新公开帖子，按发布时间倒序。
+     *
+     * <p>可选登录；游标规则与其他列表一致。当前只支持 {@code latest}，
+     * 其他排序值（含 {@code hot}）返回 40001。
+     *
+     * @param sort   排序方式，可为空，空值按 latest 处理
+     * @param cursor 上一页返回的 nextCursor，可为空
+     * @param size   每页数量，默认 20，越界自动夹到 1~50
+     * @return 帖子摘要游标页
+     */
+    CursorPage<PostSummaryVO> listLatest(String sort, String cursor, Integer size);
+
+    /**
+     * 查询当前登录用户的帖子，按创建时间倒序。
+     *
+     * <p>包含待审核、已发布、审核拒绝与已下架状态；支持按状态筛选，不传表示全部。
+     * 游标规则与其他列表一致。
+     *
+     * @param status 帖子状态 0~3，可为空
+     * @param cursor 上一页返回的 nextCursor，可为空
+     * @param size   每页数量，默认 20，越界自动夹到 1~50
+     * @return 我的帖子摘要游标页
+     */
+    CursorPage<MyPostSummaryVO> listMyPosts(Integer status, String cursor, Integer size);
 
     /**
      * 编辑帖子（仅作者本人）。

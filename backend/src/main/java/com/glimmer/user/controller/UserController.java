@@ -7,6 +7,7 @@ import com.glimmer.user.service.UserService;
 import com.glimmer.user.vo.FollowResultVO;
 import com.glimmer.user.vo.FollowUserVO;
 import com.glimmer.user.vo.SelfProfileVO;
+import com.glimmer.user.vo.UserProfileVO;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
@@ -18,7 +19,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
- * 本人资料接口。必须登录，鉴权由 AuthInterceptor 统一完成。
+ * 用户资料与关注关系接口。公开主页、粉丝 / 关注列表可选登录，其余接口需登录，鉴权由 AuthInterceptor 统一完成。
  */
 @RestController
 @RequestMapping("/api/v1/users")
@@ -28,6 +29,18 @@ public class UserController {
 
     public UserController(UserService userService) {
         this.userService = userService;
+    }
+
+    /**
+     * 查看用户公开主页（可选登录）。
+     *
+     * <p>只返回公开资料；登录时补充 isFollowing 与 isMe。
+     *
+     * @param userId 目标用户 ID
+     */
+    @GetMapping("/{userId}")
+    public Result<UserProfileVO> profile(@PathVariable String userId) {
+        return Result.ok(userService.getPublicProfile(userId));
     }
 
     /**

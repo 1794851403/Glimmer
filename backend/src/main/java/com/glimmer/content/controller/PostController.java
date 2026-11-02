@@ -1,10 +1,12 @@
 package com.glimmer.content.controller;
 
+import com.glimmer.common.api.CursorPage;
 import com.glimmer.common.api.Result;
 import com.glimmer.content.dto.CreatePostDTO;
 import com.glimmer.content.service.PostService;
 import com.glimmer.content.vo.PostCreateVO;
 import com.glimmer.content.vo.PostDetailVO;
+import com.glimmer.content.vo.PostSummaryVO;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -13,11 +15,12 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
- * 帖子接口。必须登录，鉴权由 AuthInterceptor 统一完成。
+ * 帖子接口。发布、编辑、删除需登录，公开列表与详情可选登录，鉴权由 AuthInterceptor 统一完成。
  */
 @RestController
 @RequestMapping("/api/v1/posts")
@@ -27,6 +30,22 @@ public class PostController {
 
     public PostController(PostService postService) {
         this.postService = postService;
+    }
+
+    /**
+     * 全站最新公开帖子（可选登录）。
+     *
+     * <p>当前只支持 sort=latest；hot 待热榜模块接入。坏游标按首页处理。
+     *
+     * @param sort   排序方式，可为空
+     * @param cursor 上一页的 nextCursor，可为空
+     * @param size   每页数量，可为空
+     */
+    @GetMapping
+    public Result<CursorPage<PostSummaryVO>> list(@RequestParam(required = false) String sort,
+                                                  @RequestParam(required = false) String cursor,
+                                                  @RequestParam(required = false) Integer size) {
+        return Result.ok(postService.listLatest(sort, cursor, size));
     }
 
     /**

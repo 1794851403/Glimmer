@@ -19,6 +19,7 @@ import com.glimmer.content.mapper.PostTagMapper;
 import com.glimmer.content.mapper.TagMapper;
 import com.glimmer.content.service.PostService;
 import com.glimmer.content.vo.ImageItemVO;
+import com.glimmer.content.vo.MyPostSummaryVO;
 import com.glimmer.content.vo.PostAuditVO;
 import com.glimmer.content.vo.PostCreateVO;
 import com.glimmer.content.vo.PostDetailVO;
@@ -187,13 +188,6 @@ public class PostServiceImpl implements PostService {
                 && userService.isFollowing(viewer.userId(), post.getUserId());
 
         // 7. 组装详情
-        String statusText = switch (status) {
-            case 0 -> "已发布待审核";
-            case 1 -> "已发布";
-            case 2 -> "审核拒绝";
-            case 3 -> "已下架";
-            default -> "未知状态";
-        };
         boolean canSeeAuditInfo = isAuthor || isAdmin;
 
         return PostDetailVO.builder()
@@ -205,7 +199,7 @@ public class PostServiceImpl implements PostService {
                 .author(author)
                 .tags(tags)
                 .status(status)
-                .statusText(statusText)
+                .statusText(statusText(status))
                 .auditReason(canSeeAuditInfo ? post.getAuditReason() : null)
                 .likeCount(value(post.getLikeCount()))
                 .commentCount(value(post.getCommentCount()))
@@ -225,34 +219,163 @@ public class PostServiceImpl implements PostService {
     }
 
     /**
-     * 只查公开状态（0/1）且未删除的帖子，按 {@code published_at DESC, id DESC} 游标分页；
-     * 多取一条判断 {@code hasMore}，再批量补图片、标签与作者摘要，避免 N+1。
+     * 按作者集合查询公开帖子；作者集合为 {@code null} 或空时返回空页。
      *
-     * @param authorIds 作者 ID 集合，为空时返回空页
-     * @param rawCursor 上一页游标，可为空，坏游标按首页处理
-     * @param rawSize   每页数量，默认 20，越界夹到 1~50
+     * @param authorIds 作者 ID 集合
+     * @param rawCursor 上一页游标，可为空
+     * @param rawSize   每页数量
      * @return 帖子摘要游标页
      */
     @Override
     public CursorPage<PostSummaryVO> listByAuthors(Collection<Long> authorIds, String rawCursor, Integer rawSize) {
-        List<Long> ids = authorIds == null
-                ? List.of()
-                : authorIds.stream().filter(Objects::nonNull).distinct().toList();
-        if (ids.isEmpty()) {
+        if (authorIds == null) {
+            return CursorPage.empty();
+        }
+        return listPublicPosts(authorIds, rawCursor, rawSize);
+    }
+
+    /**
+     * 校验用户公开可见后，按作者查询公开帖子。
+     *
+     * @param rawUserId 作者用户 ID，允许数字字符串
+     * @param rawCursor 上一页游标，可为空
+     * @param rawSize   每页数量
+     * @return 帖子摘要游标页
+     */
+    @Override
+    public CursorPage<PostSummaryVO> listByAuthor(String rawUserId, String rawCursor, Integer rawSize) {
+        Long authorId = userService.resolvePublicUserId(rawUserId);
+        return listPublicPosts(List.of(authorId), rawCursor, rawSize);
+    }
+
+    /**
+     * 只支持 latest；hot 待热榜模块接入后再实现，避免前端误以为热榜已生效。
+     *
+     * @param sort      排序方式，空值按 latest 处理
+     * @param rawCursor 上一页游标，可为空
+     * @param rawSize   每页数量
+     * @return 帖子摘要游标页
+     */
+    @Override
+    public CursorPage<PostSummaryVO> listLatest(String sort, String rawCursor, Integer rawSize) {
+        if (StringUtils.hasText(sort) && !"latest".equalsIgnoreCase(sort.strip())) {
+            throw new BizException(ErrorCode.INVALID_PARAM, "暂不支持该排序方式");
+        }
+        return listPublicPosts(null, rawCursor, rawSize);
+    }
+
+    /**
+     * 查询当前登录用户的全部未删除帖子，按 {@code created_at DESC, id DESC} 游标分页；
+     * 状态可选，不传表示全部。
+     *
+     * @param rawStatus 帖子状态 0~3，可为空
+     * @param rawCursor 上一页游标，可为空
+     * @param rawSize   每页数量
+     * @return 我的帖子摘要游标页
+     */
+    @Override
+    public CursorPage<MyPostSummaryVO> listMyPosts(Integer rawStatus, String rawCursor, Integer rawSize) {
+        if (rawStatus != null && (rawStatus < 0 || rawStatus > 3)) {
+            throw new BizException(ErrorCode.INVALID_PARAM, "状态取值应为 0~3");
+        }
+
+        int size = pageSize(rawSize);
+        CursorCodec.CursorValue cursor = CursorCodec.decode(rawCursor);
+
+        LambdaQueryWrapper<PostDO> query = new LambdaQueryWrapper<PostDO>()
+                .eq(PostDO::getUserId, UserContext.require().userId())
+                .eq(PostDO::getIsDeleted, 0);
+        if (rawStatus != null) {
+            query.eq(PostDO::getStatus, rawStatus);
+        }
+        if (cursor != null) {
+            query.and(wrapper -> wrapper
+                    .lt(PostDO::getCreatedAt, cursor.time())
+                    .or(sameTime -> sameTime
+                            .eq(PostDO::getCreatedAt, cursor.time())
+                            .lt(PostDO::getId, cursor.id())));
+        }
+        query.orderByDesc(PostDO::getCreatedAt)
+                .orderByDesc(PostDO::getId)
+                .last("LIMIT " + (size + 1));
+
+        List<PostDO> rows = safeList(postMapper.selectList(query));
+        boolean hasMore = rows.size() > size;
+        if (hasMore) {
+            rows = new ArrayList<>(rows.subList(0, size));
+        }
+        if (rows.isEmpty()) {
             return CursorPage.empty();
         }
 
-        int size = rawSize == null
-                ? DEFAULT_PAGE_SIZE
-                : Math.max(1, Math.min(rawSize, MAX_PAGE_SIZE));
+        List<Long> postIds = rows.stream().map(PostDO::getId).filter(Objects::nonNull).toList();
+        Map<Long, List<ImageItemVO>> imagesByPost = loadImages(postIds);
+        Map<Long, List<TagVO>> tagsByPost = loadTags(postIds);
+        Map<Long, UserBriefVO> authors = loadAuthors(rows);
+
+        List<MyPostSummaryVO> items = new ArrayList<>(rows.size());
+        for (PostDO post : rows) {
+            List<ImageItemVO> images = imagesByPost.getOrDefault(post.getId(), List.of());
+            int status = statusOf(post);
+            items.add(MyPostSummaryVO.builder()
+                    .id(String.valueOf(post.getId()))
+                    .title(post.getTitle())
+                    .coverUrl(images.isEmpty() ? "" : images.get(0).url())
+                    .author(authors.getOrDefault(post.getUserId(),
+                            UserBriefVO.placeholder(post.getUserId())))
+                    .tags(tagsByPost.getOrDefault(post.getId(), List.of()))
+                    .likeCount(value(post.getLikeCount()))
+                    .commentCount(value(post.getCommentCount()))
+                    .collectCount(value(post.getCollectCount()))
+                    .viewCount(value(post.getViewCount()))
+                    .publishedAt(epochMillis(post.getPublishedAt()))
+                    .status(status)
+                    .statusText(statusText(status))
+                    .auditReason(status == 2 || status == 3 ? post.getAuditReason() : null)
+                    .createdAt(epochMillis(post.getCreatedAt()))
+                    .updatedAt(epochMillis(post.getUpdatedAt()))
+                    .liked(false)       // 互动模块未接入
+                    .collected(false)   // 互动模块未接入
+                    .build());
+        }
+
+        String nextCursor = null;
+        if (hasMore) {
+            PostDO last = rows.get(rows.size() - 1);
+            nextCursor = CursorCodec.encode(last.getCreatedAt(), last.getId());
+        }
+        return new CursorPage<>(items, nextCursor, hasMore);
+    }
+
+    /**
+     * 公开帖子列表的公共查询：只查状态 0/1 且未删除，按发布时间倒序。
+     *
+     * @param authorIds 作者 ID 集合；{@code null} 表示全站
+     * @param rawCursor 上一页游标，可为空，坏游标按首页处理
+     * @param rawSize   每页数量，默认 20，越界夹到 1~50
+     * @return 帖子摘要游标页
+     */
+    private CursorPage<PostSummaryVO> listPublicPosts(Collection<Long> authorIds,
+                                                      String rawCursor, Integer rawSize) {
+        List<Long> ids = null;
+        if (authorIds != null) {
+            ids = authorIds.stream().filter(Objects::nonNull).distinct().toList();
+            if (ids.isEmpty()) {
+                return CursorPage.empty();
+            }
+        }
+
+        int size = pageSize(rawSize);
 
         // 坏游标按首页处理
         CursorCodec.CursorValue cursor = CursorCodec.decode(rawCursor);
 
         LambdaQueryWrapper<PostDO> query = new LambdaQueryWrapper<PostDO>()
-                .in(PostDO::getUserId, ids)
                 .in(PostDO::getStatus, List.of(0, 1))
                 .eq(PostDO::getIsDeleted, 0);
+        if (ids != null) {
+            query.in(PostDO::getUserId, ids);
+        }
         if (cursor != null) {
             query.and(wrapper -> wrapper
                     .lt(PostDO::getPublishedAt, cursor.time())
@@ -275,74 +398,20 @@ public class PostServiceImpl implements PostService {
 
         // 批量补图片、标签和作者，避免逐条查询
         List<Long> postIds = rows.stream().map(PostDO::getId).filter(Objects::nonNull).toList();
-
-        Map<Long, List<ImageItemVO>> imagesByPost = new HashMap<>();
-        if (!postIds.isEmpty()) {
-            List<PostImageDO> images = safeList(postImageMapper.selectList(
-                    new LambdaQueryWrapper<PostImageDO>()
-                            .in(PostImageDO::getPostId, postIds)
-                            .orderByAsc(PostImageDO::getSortOrder)
-                            .orderByAsc(PostImageDO::getId)));
-            for (PostImageDO image : images) {
-                if (image.getPostId() != null) {
-                    imagesByPost.computeIfAbsent(image.getPostId(), key -> new ArrayList<>())
-                            .add(ImageItemVO.from(image));
-                }
-            }
-        }
-
-        Map<Long, List<Long>> tagIdsByPost = new HashMap<>();
-        if (!postIds.isEmpty()) {
-            List<PostTagDO> links = safeList(postTagMapper.selectList(
-                    new LambdaQueryWrapper<PostTagDO>()
-                            .in(PostTagDO::getPostId, postIds)
-                            .orderByAsc(PostTagDO::getId)));
-            for (PostTagDO link : links) {
-                if (link.getPostId() != null && link.getTagId() != null) {
-                    tagIdsByPost.computeIfAbsent(link.getPostId(), key -> new ArrayList<>())
-                            .add(link.getTagId());
-                }
-            }
-        }
-
-        List<Long> allTagIds = tagIdsByPost.values().stream()
-                .flatMap(Collection::stream)
-                .distinct()
-                .toList();
-        Map<Long, TagVO> tagsById = new HashMap<>();
-        if (!allTagIds.isEmpty()) {
-            for (TagDO tag : safeList(tagMapper.selectBatchIds(allTagIds))) {
-                if (tag.getId() != null) {
-                    tagsById.put(tag.getId(), TagVO.from(tag));
-                }
-            }
-        }
-
-        List<Long> authorIdsForPage = rows.stream()
-                .map(PostDO::getUserId)
-                .filter(Objects::nonNull)
-                .distinct()
-                .toList();
-        Map<Long, UserBriefVO> authors = userService.getBriefs(authorIdsForPage);
-        if (authors == null) {
-            authors = Map.of();
-        }
+        Map<Long, List<ImageItemVO>> imagesByPost = loadImages(postIds);
+        Map<Long, List<TagVO>> tagsByPost = loadTags(postIds);
+        Map<Long, UserBriefVO> authors = loadAuthors(rows);
 
         List<PostSummaryVO> items = new ArrayList<>(rows.size());
         for (PostDO post : rows) {
             List<ImageItemVO> images = imagesByPost.getOrDefault(post.getId(), List.of());
-            List<TagVO> tags = tagIdsByPost.getOrDefault(post.getId(), List.of()).stream()
-                    .map(tagsById::get)
-                    .filter(Objects::nonNull)
-                    .toList();
-            UserBriefVO author = authors.getOrDefault(post.getUserId(),
-                    UserBriefVO.placeholder(post.getUserId()));
             items.add(new PostSummaryVO(
                     String.valueOf(post.getId()),
                     post.getTitle(),
                     images.isEmpty() ? "" : images.get(0).url(),
-                    author,
-                    tags,
+                    authors.getOrDefault(post.getUserId(),
+                            UserBriefVO.placeholder(post.getUserId())),
+                    tagsByPost.getOrDefault(post.getId(), List.of()),
                     value(post.getLikeCount()),
                     value(post.getCommentCount()),
                     value(post.getCollectCount()),
@@ -359,6 +428,82 @@ public class PostServiceImpl implements PostService {
             nextCursor = CursorCodec.encode(last.getPublishedAt(), last.getId());
         }
         return new CursorPage<>(items, nextCursor, hasMore);
+    }
+
+    private Map<Long, List<ImageItemVO>> loadImages(List<Long> postIds) {
+        Map<Long, List<ImageItemVO>> imagesByPost = new HashMap<>();
+        if (postIds.isEmpty()) {
+            return imagesByPost;
+        }
+        List<PostImageDO> images = safeList(postImageMapper.selectList(
+                new LambdaQueryWrapper<PostImageDO>()
+                        .in(PostImageDO::getPostId, postIds)
+                        .orderByAsc(PostImageDO::getSortOrder)
+                        .orderByAsc(PostImageDO::getId)));
+        for (PostImageDO image : images) {
+            if (image.getPostId() != null) {
+                imagesByPost.computeIfAbsent(image.getPostId(), key -> new ArrayList<>())
+                        .add(ImageItemVO.from(image));
+            }
+        }
+        return imagesByPost;
+    }
+
+    private Map<Long, List<TagVO>> loadTags(List<Long> postIds) {
+        Map<Long, List<TagVO>> tagsByPost = new HashMap<>();
+        if (postIds.isEmpty()) {
+            return tagsByPost;
+        }
+        List<PostTagDO> links = safeList(postTagMapper.selectList(
+                new LambdaQueryWrapper<PostTagDO>()
+                        .in(PostTagDO::getPostId, postIds)
+                        .orderByAsc(PostTagDO::getId)));
+        List<Long> tagIds = links.stream()
+                .map(PostTagDO::getTagId)
+                .filter(Objects::nonNull)
+                .distinct()
+                .toList();
+        Map<Long, TagVO> tagsById = new HashMap<>();
+        if (!tagIds.isEmpty()) {
+            for (TagDO tag : safeList(tagMapper.selectBatchIds(tagIds))) {
+                if (tag.getId() != null) {
+                    tagsById.put(tag.getId(), TagVO.from(tag));
+                }
+            }
+        }
+        for (PostTagDO link : links) {
+            TagVO tag = link.getTagId() == null ? null : tagsById.get(link.getTagId());
+            if (link.getPostId() != null && tag != null) {
+                tagsByPost.computeIfAbsent(link.getPostId(), key -> new ArrayList<>()).add(tag);
+            }
+        }
+        return tagsByPost;
+    }
+
+    private Map<Long, UserBriefVO> loadAuthors(List<PostDO> rows) {
+        List<Long> authorIds = rows.stream()
+                .map(PostDO::getUserId)
+                .filter(Objects::nonNull)
+                .distinct()
+                .toList();
+        Map<Long, UserBriefVO> authors = userService.getBriefs(authorIds);
+        return authors == null ? Map.of() : authors;
+    }
+
+    private int pageSize(Integer rawSize) {
+        return rawSize == null
+                ? DEFAULT_PAGE_SIZE
+                : Math.max(1, Math.min(rawSize, MAX_PAGE_SIZE));
+    }
+
+    private String statusText(int status) {
+        return switch (status) {
+            case 0 -> "已发布待审核";
+            case 1 -> "已发布";
+            case 2 -> "审核拒绝";
+            case 3 -> "已下架";
+            default -> "未知状态";
+        };
     }
 
     /**

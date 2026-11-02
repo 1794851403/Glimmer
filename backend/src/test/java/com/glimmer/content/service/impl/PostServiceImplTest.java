@@ -17,6 +17,7 @@ import com.glimmer.content.mapper.PostMapper;
 import com.glimmer.content.mapper.PostTagMapper;
 import com.glimmer.content.mapper.TagMapper;
 import com.glimmer.content.vo.ImageItemVO;
+import com.glimmer.content.vo.MyPostSummaryVO;
 import com.glimmer.content.vo.PostAuditVO;
 import com.glimmer.content.vo.PostCreateVO;
 import com.glimmer.content.vo.PostDetailVO;
@@ -350,11 +351,113 @@ class PostServiceImplTest {
     @Test
     void shouldReturnEmptyPageWhenNoAuthors() {
         CursorPage<PostSummaryVO> page = postService.listByAuthors(List.of(), null, 20);
+        CursorPage<PostSummaryVO> nullPage = postService.listByAuthors(null, null, 20);
 
         assertThat(page.items()).isEmpty();
         assertThat(page.hasMore()).isFalse();
         assertThat(page.nextCursor()).isNull();
+        assertThat(nullPage.items()).isEmpty();
         verifyNoInteractions(postMapper, userService);
+    }
+
+    @Test
+    void shouldListPublicPostsByAuthor() {
+        LocalDateTime now = LocalDateTime.of(2026, 10, 29, 12, 0);
+        when(userService.resolvePublicUserId("1")).thenReturn(1L);
+        when(postMapper.selectList(any())).thenReturn(List.of(post(1001L, 1L, 1, now)));
+        when(postImageMapper.selectList(any())).thenReturn(List.of(
+                image(1001L, "https://cdn.example.com/1.jpg", 0)));
+        when(postTagMapper.selectList(any())).thenReturn(List.of());
+        when(userService.getBriefs(any())).thenReturn(Map.of(1L, brief(1L, "小光")));
+
+        CursorPage<PostSummaryVO> page = postService.listByAuthor("1", null, 20);
+
+        assertThat(page.items()).extracting(PostSummaryVO::id).containsExactly("1001");
+        assertThat(page.items().get(0).author().nickname()).isEqualTo("小光");
+        assertThat(page.hasMore()).isFalse();
+        verify(userService).resolvePublicUserId("1");
+    }
+
+    @Test
+    void shouldRejectPostsForMissingUser() {
+        when(userService.resolvePublicUserId("99"))
+                .thenThrow(new BizException(ErrorCode.NOT_FOUND, "用户不存在"));
+
+        assertThatThrownBy(() -> postService.listByAuthor("99", null, 20))
+                .isInstanceOfSatisfying(BizException.class,
+                        e -> assertThat(e.errorCode()).isEqualTo(ErrorCode.NOT_FOUND));
+        verifyNoInteractions(postMapper);
+    }
+
+    @Test
+    void shouldListLatestPublicPosts() {
+        LocalDateTime now = LocalDateTime.of(2026, 10, 29, 12, 0);
+        when(postMapper.selectList(any())).thenReturn(List.of(
+                post(1001L, 1L, 1, now),
+                post(1002L, 2L, 0, now.minusMinutes(1))));
+        when(postImageMapper.selectList(any())).thenReturn(List.of(
+                image(1001L, "https://cdn.example.com/1.jpg", 0),
+                image(1002L, "https://cdn.example.com/2.jpg", 0)));
+        when(postTagMapper.selectList(any())).thenReturn(List.of(postTag(1001L, 3L)));
+        when(tagMapper.selectBatchIds(any())).thenReturn(List.of(tag(3L, "露营")));
+        when(userService.getBriefs(any())).thenReturn(Map.of(
+                1L, brief(1L, "小光"),
+                2L, brief(2L, "阿野")));
+
+        CursorPage<PostSummaryVO> page = postService.listLatest("latest", null, 20);
+
+        assertThat(page.items()).extracting(PostSummaryVO::id)
+                .containsExactly("1001", "1002");
+        assertThat(page.items().get(0).tags()).extracting(TagVO::name)
+                .containsExactly("露营");
+        assertThat(page.hasMore()).isFalse();
+        verify(userService, never()).resolvePublicUserId(any());
+    }
+
+    @Test
+    void shouldRejectUnsupportedSort() {
+        assertThatThrownBy(() -> postService.listLatest("hot", null, 20))
+                .isInstanceOfSatisfying(BizException.class,
+                        e -> assertThat(e.errorCode()).isEqualTo(ErrorCode.INVALID_PARAM));
+        verifyNoInteractions(postMapper);
+    }
+
+    @Test
+    void shouldListMyPostsWithStatusAndAuditInfo() {
+        LocalDateTime now = LocalDateTime.of(2026, 10, 29, 12, 0);
+        PostDO published = post(1001L, 1L, 1, now);
+        PostDO rejected = post(1002L, 1L, 2, now.minusMinutes(1));
+        rejected.setAuditReason("内容不符合社区规范");
+        PostDO takedown = post(1003L, 1L, 3, now.minusMinutes(2));
+        takedown.setAuditReason("违反社区规范");
+
+        when(postMapper.selectList(any())).thenReturn(List.of(published, rejected, takedown));
+        when(postImageMapper.selectList(any())).thenReturn(List.of(
+                image(1001L, "https://cdn.example.com/1.jpg", 0),
+                image(1002L, "https://cdn.example.com/2.jpg", 0),
+                image(1003L, "https://cdn.example.com/3.jpg", 0)));
+        when(postTagMapper.selectList(any())).thenReturn(List.of());
+        when(userService.getBriefs(any())).thenReturn(Map.of(1L, brief(1L, "小光")));
+
+        CursorPage<MyPostSummaryVO> page = postService.listMyPosts(null, null, 2);
+
+        assertThat(page.items()).extracting(MyPostSummaryVO::id)
+                .containsExactly("1001", "1002");
+        assertThat(page.items().get(0).statusText()).isEqualTo("已发布");
+        assertThat(page.items().get(0).auditReason()).isNull();
+        assertThat(page.items().get(1).statusText()).isEqualTo("审核拒绝");
+        assertThat(page.items().get(1).auditReason()).isEqualTo("内容不符合社区规范");
+        assertThat(page.items().get(0).createdAt()).isPositive();
+        assertThat(page.hasMore()).isTrue();
+        assertThat(page.nextCursor()).isNotBlank();
+    }
+
+    @Test
+    void shouldRejectInvalidMyPostStatus() {
+        assertThatThrownBy(() -> postService.listMyPosts(9, null, 20))
+                .isInstanceOfSatisfying(BizException.class,
+                        e -> assertThat(e.errorCode()).isEqualTo(ErrorCode.INVALID_PARAM));
+        verifyNoInteractions(postMapper);
     }
 
     @Test

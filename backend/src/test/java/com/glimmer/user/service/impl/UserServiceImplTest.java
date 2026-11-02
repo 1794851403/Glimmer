@@ -11,6 +11,7 @@ import com.glimmer.user.dto.UpdateProfileDTO;
 import com.glimmer.user.vo.FollowResultVO;
 import com.glimmer.user.vo.FollowUserVO;
 import com.glimmer.user.vo.SelfProfileVO;
+import com.glimmer.user.vo.UserProfileVO;
 import com.glimmer.user.entity.UserDO;
 import com.glimmer.user.entity.UserFollowDO;
 import com.glimmer.user.mapper.UserFollowMapper;
@@ -192,6 +193,72 @@ class UserServiceImplTest {
         assertThatThrownBy(userService::getMyProfile)
                 .isInstanceOfSatisfying(BizException.class,
                         e -> assertThat(e.errorCode()).isEqualTo(ErrorCode.UNAUTHENTICATED));
+    }
+
+    @Test
+    void shouldReturnPublicProfileForAnonymous() {
+        UserContext.clear();
+        when(userMapper.selectById(2L)).thenReturn(user(2L, "阿野"));
+
+        UserProfileVO profile = userService.getPublicProfile("2");
+
+        assertThat(profile.id()).isEqualTo("2");
+        assertThat(profile.nickname()).isEqualTo("阿野");
+        assertThat(profile.avatarUrl()).isEmpty();
+        assertThat(profile.bio()).isEmpty();
+        assertThat(profile.followingCount()).isEqualTo(2);
+        assertThat(profile.followerCount()).isEqualTo(3);
+        assertThat(profile.isFollowing()).isFalse();
+        assertThat(profile.isMe()).isFalse();
+        assertThat(profile.createdAt()).isPositive();
+        verifyNoInteractions(userFollowMapper);
+    }
+
+    @Test
+    void shouldReturnPublicProfileWithViewerFollowState() {
+        when(userMapper.selectById(2L)).thenReturn(user(2L, "阿野"));
+        when(userFollowMapper.selectCount(any())).thenReturn(1L);
+
+        UserProfileVO profile = userService.getPublicProfile("2");
+
+        assertThat(profile.isFollowing()).isTrue();
+        assertThat(profile.isMe()).isFalse();
+    }
+
+    @Test
+    void shouldMarkOwnPublicProfileWithoutFollowQuery() {
+        when(userMapper.selectById(1L)).thenReturn(user(1L, "小光"));
+
+        UserProfileVO profile = userService.getPublicProfile("1");
+
+        assertThat(profile.isMe()).isTrue();
+        assertThat(profile.isFollowing()).isFalse();
+        verifyNoInteractions(userFollowMapper);
+    }
+
+    @Test
+    void shouldRejectPublicProfileForMissingOrBannedUser() {
+        when(userMapper.selectById(2L)).thenReturn(null);
+        UserDO banned = user(3L, "阿野");
+        banned.setStatus(1);
+        when(userMapper.selectById(3L)).thenReturn(banned);
+
+        assertThatThrownBy(() -> userService.getPublicProfile("2"))
+                .isInstanceOfSatisfying(BizException.class,
+                        e -> assertThat(e.errorCode()).isEqualTo(ErrorCode.NOT_FOUND));
+        assertThatThrownBy(() -> userService.getPublicProfile("3"))
+                .isInstanceOfSatisfying(BizException.class,
+                        e -> assertThat(e.errorCode()).isEqualTo(ErrorCode.NOT_FOUND));
+        assertThatThrownBy(() -> userService.getPublicProfile("abc"))
+                .isInstanceOfSatisfying(BizException.class,
+                        e -> assertThat(e.errorCode()).isEqualTo(ErrorCode.NOT_FOUND));
+    }
+
+    @Test
+    void shouldResolvePublicUserId() {
+        when(userMapper.selectById(2L)).thenReturn(user(2L, "阿野"));
+
+        assertThat(userService.resolvePublicUserId("2")).isEqualTo(2L);
     }
 
     @Test

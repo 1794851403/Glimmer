@@ -6,13 +6,14 @@ import com.glimmer.user.vo.FollowResultVO;
 import com.glimmer.user.vo.FollowUserVO;
 import com.glimmer.user.vo.SelfProfileVO;
 import com.glimmer.user.vo.UserBriefVO;
+import com.glimmer.user.vo.UserProfileVO;
 
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 
 /**
- * 用户模块对外的服务：本人资料、作者简要信息与关注关系查询。
+ * 用户模块对外的服务：本人资料、公开主页、作者简要信息与关注关系查询。
  *
  * <p>Service 接口是模块对外的事实 Facade，跨模块调用只依赖接口；
  * 具体实现见 {@link com.glimmer.user.service.impl.UserServiceImpl}。
@@ -38,6 +39,27 @@ public interface UserService {
      * @return 修改后的完整本人资料
      */
     SelfProfileVO updateMyProfile(UpdateProfileDTO request);
+
+    /**
+     * 查询用户公开主页。
+     *
+     * <p>只返回公开资料；用户不存在、ID 非法或已封禁统一返回 40401。
+     * 可选登录：有登录态时补 {@code isFollowing} 与 {@code isMe}。
+     *
+     * @param rawUserId 用户 ID，允许数字字符串
+     * @return 用户公开主页
+     */
+    UserProfileVO getPublicProfile(String rawUserId);
+
+    /**
+     * 解析并校验公开可见用户，返回用户 ID。
+     *
+     * <p>供 content 模块查询用户公开帖子时复用，避免跨模块直接访问用户表。
+     *
+     * @param rawUserId 用户 ID，允许数字字符串
+     * @return 用户 ID
+     */
+    Long resolvePublicUserId(String rawUserId);
 
     /**
      * 查询单个用户简要信息，供帖子详情等跨模块组装使用。

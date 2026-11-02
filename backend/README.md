@@ -153,6 +153,29 @@ curl -s http://localhost:8080/api/v1/posts/<postId> \
 - 帖子不存在、已删除或当前不可见统一返回 `40402`，不区分非法 ID；
 - 作者本人可看到自己的 `status=2/3` 帖子与 `auditReason` / `aiTagStatus`。
 
+## 验证用户主页与帖子列表
+
+```bash
+# 用户公开主页：可选登录；登录时返回 isFollowing / isMe
+curl -s http://localhost:8080/api/v1/users/<userId> \
+  -H "Authorization: Bearer <accessToken>"
+
+# 用户公开帖子：只返回 status IN (0,1)，publishedAt DESC, id DESC
+curl -s 'http://localhost:8080/api/v1/users/<userId>/posts?size=20' \
+  -H "Authorization: Bearer <accessToken>"
+
+# 我的帖子：需登录；status 可省略（全部），按 createdAt DESC, id DESC
+curl -s 'http://localhost:8080/api/v1/users/me/posts?status=2&size=20' \
+  -H "Authorization: Bearer <accessToken>"
+
+# 全站最新：可匿名；当前只支持 sort=latest，hot 返回 40001
+curl -s 'http://localhost:8080/api/v1/posts?sort=latest&size=20'
+```
+
+- 公开主页不返回手机号 / 角色 / 封禁状态；用户非法、不存在或已封禁统一 `40401`；
+- 我的帖子包含 0/1/2/3 全部未删除状态，`auditReason` 仅 2/3 返回；`status` 超出 0~3 返回 `40001`；
+- 四个接口的坏游标都按首页处理，`size` 默认 20、越界夹到 1~50。
+
 ## 验证关注流
 
 ```bash
@@ -234,13 +257,13 @@ curl -s -X POST http://localhost:8080/api/v1/admin/posts/<postId>/restore \
 mvn test
 ```
 
-当前 73 个单元测试：JWT、`UserServiceImpl`、`FileServiceImpl`、`PostServiceImpl`、`TagServiceImpl`、`FeedServiceImpl`；
+当前 84 个单元测试：JWT、`UserServiceImpl`、`FileServiceImpl`、`PostServiceImpl`、`TagServiceImpl`、`FeedServiceImpl`；
 涉及 MyBatis-Plus 更新条件的用例在 `@BeforeAll` 注册实体的 `TableInfo`；接 Testcontainers 后补
 MySQL / Redis / RabbitMQ / OSS 集成测试与 ArchUnit 模块边界测试。
 
 ## 待办
 
-- 用户主页 `GET /users/{userId}`、用户帖子列表、我的帖子列表；
+- 点赞 / 收藏 / 评论与真实互动状态；
 - 管理端帖子列表 / 详情 / 情感分析；
 - Feed 写扩散、Redis 收件箱、热榜与推荐流；
 - OSS 直传（预签名 URL）、magic bytes 校验、图片内容审核（演进）；

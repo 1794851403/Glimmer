@@ -18,6 +18,7 @@ import com.glimmer.user.vo.FollowResultVO;
 import com.glimmer.user.vo.FollowUserVO;
 import com.glimmer.user.vo.SelfProfileVO;
 import com.glimmer.user.vo.UserBriefVO;
+import com.glimmer.user.vo.UserProfileVO;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -138,6 +139,34 @@ public class UserServiceImpl implements UserService {
             throw new BizException(ErrorCode.UNAUTHENTICATED);
         }
         return SelfProfileVO.from(requireCurrentUser());
+    }
+
+    /**
+     * 查询公开主页：校验用户存在且未封禁，再按登录态计算关注关系。
+     *
+     * @param rawUserId 用户 ID，允许数字字符串
+     * @return 用户公开主页
+     */
+    @Override
+    public UserProfileVO getPublicProfile(String rawUserId) {
+        UserDO user = requirePublicUser(rawUserId);
+        LoginUser viewer = UserContext.get();
+        boolean isMe = viewer != null && viewer.userId().equals(user.getId());
+        boolean isFollowing = viewer != null
+                && !isMe
+                && isFollowing(viewer.userId(), user.getId());
+        return UserProfileVO.from(user, isFollowing, isMe);
+    }
+
+    /**
+     * 解析公开用户 ID；不存在、非法或已封禁统一按 40401 处理。
+     *
+     * @param rawUserId 用户 ID，允许数字字符串
+     * @return 用户 ID
+     */
+    @Override
+    public Long resolvePublicUserId(String rawUserId) {
+        return requirePublicUser(rawUserId).getId();
     }
 
     /**
@@ -413,6 +442,11 @@ public class UserServiceImpl implements UserService {
                     .eq(UserDO::getId, followeeId)
                     .setSql("follower_count = IF(follower_count > 0, follower_count - 1, 0)"));
         }
+    }
+
+    private UserDO requirePublicUser(String rawUserId) {
+        Long userId = parseUserId(rawUserId);
+        return requireExistingUser(userId);
     }
 
     private UserDO requireExistingUser(Long userId) {
