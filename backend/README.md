@@ -30,6 +30,14 @@ src/main/java/com/glimmer/
 │   ├── controller/     # GET /feed/follow 关注流
 │   └── service/        # FeedService 接口
 │       └── impl/       # FeedServiceImpl：读关注关系后委托 PostService 查公开帖子
+├── interaction/
+│   ├── controller/     # posts/{postId}/like|collect；users/me/likes|collections
+│   ├── entity/         # LikeDO / CollectDO
+│   ├── mapper/         # LikeMapper / CollectMapper（INSERT IGNORE 幂等插入）
+│   ├── vo/             # LikeResultVO / CollectResultVO
+│   └── service/        # LikeService、CollectService 接口
+│       └── impl/       # LikeServiceImpl / CollectServiceImpl：关系 + content 计数同一事务
+│                       # InteractionStatusProviderImpl：实现 content 定义的只读状态端口
 └── user/
     ├── controller/     # auth/sms-code|login|logout；users/me GET / PATCH；
     │                   # users/{userId}/follow POST / DELETE；followers / following 列表
@@ -149,7 +157,7 @@ curl -s http://localhost:8080/api/v1/posts/<postId> \
   -H "Authorization: Bearer <accessToken>"
 ```
 
-- 详情直接查 MySQL，不接缓存；`liked` / `collected` 在互动模块接入前固定为 `false`；
+- 详情直接查 MySQL，不接缓存；登录用户的 `liked` / `collected` 通过 `InteractionStatusProvider` 批量回填真实值；
 - 帖子不存在、已删除或当前不可见统一返回 `40402`，不区分非法 ID；
 - 作者本人可看到自己的 `status=2/3` 帖子与 `auditReason` / `aiTagStatus`。
 
@@ -175,6 +183,32 @@ curl -s 'http://localhost:8080/api/v1/posts?sort=latest&size=20'
 - 公开主页不返回手机号 / 角色 / 封禁状态；用户非法、不存在或已封禁统一 `40401`；
 - 我的帖子包含 0/1/2/3 全部未删除状态，`auditReason` 仅 2/3 返回；`status` 超出 0~3 返回 `40001`；
 - 四个接口的坏游标都按首页处理，`size` 默认 20、越界夹到 1~50。
+
+## 验证点赞 / 收藏
+
+```bash
+# 点赞 / 取消点赞：重复调用幂等，返回 liked 与最新 likeCount
+curl -s -X POST http://localhost:8080/api/v1/posts/<postId>/like \
+  -H "Authorization: Bearer <accessToken>"
+curl -s -X DELETE http://localhost:8080/api/v1/posts/<postId>/like \
+  -H "Authorization: Bearer <accessToken>"
+
+# 收藏 / 取消收藏：重复调用幂等，返回 collected 与最新 collectCount
+curl -s -X POST http://localhost:8080/api/v1/posts/<postId>/collect \
+  -H "Authorization: Bearer <accessToken>"
+curl -s -X DELETE http://localhost:8080/api/v1/posts/<postId>/collect \
+  -H "Authorization: Bearer <accessToken>"
+
+# 我的点赞 / 我的收藏：按关系 created_at DESC, id DESC；隐藏帖子自动跳过
+curl -s 'http://localhost:8080/api/v1/users/me/likes?size=20' \
+  -H "Authorization: Bearer <accessToken>"
+curl -s 'http://localhost:8080/api/v1/users/me/collections?size=20' \
+  -H "Authorization: Bearer <accessToken>"
+```
+
+- 关系写 `t_like` / `t_collect`，计数由 interaction 调用 content 的 Service 更新，二者在同一 MySQL 事务内提交；
+- 只有 `INSERT IGNORE` / `DELETE` 真正影响行时才变更计数，重复操作只读取当前计数；
+- 帖子不存在或不可见统一 `40402`；我的列表只返回当前 `status IN (0,1) AND is_deleted=0` 的帖子。
 
 ## 验证关注流
 
@@ -257,13 +291,13 @@ curl -s -X POST http://localhost:8080/api/v1/admin/posts/<postId>/restore \
 mvn test
 ```
 
-当前 84 个单元测试：JWT、`UserServiceImpl`、`FileServiceImpl`、`PostServiceImpl`、`TagServiceImpl`、`FeedServiceImpl`；
+当前 114 个单元测试：JWT、`UserServiceImpl`、`FileServiceImpl`、`PostServiceImpl`、`TagServiceImpl`、`FeedServiceImpl`、`LikeServiceImpl`、`CollectServiceImpl`、`InteractionStatusProviderImpl`；
 涉及 MyBatis-Plus 更新条件的用例在 `@BeforeAll` 注册实体的 `TableInfo`；接 Testcontainers 后补
 MySQL / Redis / RabbitMQ / OSS 集成测试与 ArchUnit 模块边界测试。
 
 ## 待办
 
-- 点赞 / 收藏 / 评论与真实互动状态；
+- 评论 / 回复与情感分析；
 - 管理端帖子列表 / 详情 / 情感分析；
 - Feed 写扩散、Redis 收件箱、热榜与推荐流；
 - OSS 直传（预签名 URL）、magic bytes 校验、图片内容审核（演进）；

@@ -17,6 +17,7 @@ import com.glimmer.content.mapper.PostImageMapper;
 import com.glimmer.content.mapper.PostMapper;
 import com.glimmer.content.mapper.PostTagMapper;
 import com.glimmer.content.mapper.TagMapper;
+import com.glimmer.content.service.InteractionStatusProvider;
 import com.glimmer.content.service.PostService;
 import com.glimmer.content.vo.ImageItemVO;
 import com.glimmer.content.vo.MyPostSummaryVO;
@@ -41,6 +42,8 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
+import java.util.function.Function;
 
 /**
  * 发帖与帖子查询实现。
@@ -67,17 +70,20 @@ public class PostServiceImpl implements PostService {
     private final PostTagMapper postTagMapper;
     private final TagMapper tagMapper;
     private final UserService userService;
+    private final InteractionStatusProvider interactionStatusProvider;
 
     public PostServiceImpl(PostMapper postMapper,
                            PostImageMapper postImageMapper,
                            PostTagMapper postTagMapper,
                            TagMapper tagMapper,
-                           UserService userService) {
+                           UserService userService,
+                           InteractionStatusProvider interactionStatusProvider) {
         this.postMapper = postMapper;
         this.postImageMapper = postImageMapper;
         this.postTagMapper = postTagMapper;
         this.tagMapper = tagMapper;
         this.userService = userService;
+        this.interactionStatusProvider = interactionStatusProvider;
     }
 
     /**
@@ -123,7 +129,7 @@ public class PostServiceImpl implements PostService {
      * 查看帖子详情。
      *
      * <p>公开帖子所有人可见；作者本人可看自己未删除的 0/1/2/3；管理员可看任意未删除帖子。
-     * 审核原因与 AI 打标状态只对作者或管理员返回；{@code liked} / {@code collected} 在互动模块接入前固定为 false。
+     * 审核原因与 AI 打标状态只对作者或管理员返回；登录用户补真实的 {@code liked} / {@code collected}。
      *
      * @param rawPostId 帖子 ID，允许数字字符串
      * @return 帖子详情
@@ -187,7 +193,11 @@ public class PostServiceImpl implements PostService {
                 && !isAuthor
                 && userService.isFollowing(viewer.userId(), post.getUserId());
 
-        // 7. 组装详情
+        // 7. 登录用户补充互动状态；游客不查关系表
+        InteractionStatus interactionStatus = loadInteractionStatus(
+                viewer == null ? null : viewer.userId(), List.of(postId));
+
+        // 8. 组装详情
         boolean canSeeAuditInfo = isAuthor || isAdmin;
 
         return PostDetailVO.builder()
@@ -208,14 +218,112 @@ public class PostServiceImpl implements PostService {
                 .publishedAt(epochMillis(post.getPublishedAt()))
                 .createdAt(epochMillis(post.getCreatedAt()))
                 .updatedAt(epochMillis(post.getUpdatedAt()))
-                .liked(false)       // 互动模块未接入
-                .collected(false)   // 互动模块未接入
+                .liked(interactionStatus.liked().contains(postId))
+                .collected(interactionStatus.collected().contains(postId))
                 .isFollowingAuthor(isFollowingAuthor)
                 .canEdit(isAuthor && status <= 2)
                 .canResubmit(isAuthor && status == 2)
                 .canDelete(isAuthor)
                 .aiTagStatus(canSeeAuditInfo ? post.getAiTagStatus() : null)
                 .build();
+    }
+
+    /**
+     * 解析帖子 ID 并只放行公开可见状态：存在、未删除且 status 为 0/1。
+     *
+     * @param rawPostId 帖子 ID，允许数字字符串
+     * @return 帖子 ID
+     */
+    @Override
+    public Long resolvePublicPostId(String rawPostId) {
+        Long postId = parsePostId(rawPostId);
+        PostDO post = postMapper.selectById(postId);
+        if (post == null || isDeleted(post) || !publicVisible(post)) {
+            throw notVisible();
+        }
+        return postId;
+    }
+
+    /**
+     * 只有关系真正变化时才更新计数；delta=0 表示重复点赞 / 取消，仅读取当前计数。
+     * 计数更新与帖子可见性校验在同一条 UPDATE 内完成，更新不到行说明帖子已不可见。
+     *
+     * @param postId 帖子 ID
+     * @param delta  计数变化量
+     * @return 更新后的点赞数
+     */
+    @Override
+    @Transactional
+    public int onLikeChanged(Long postId, int delta) {
+        return changeInteractionCount(postId, delta, "like_count", PostDO::getLikeCount);
+    }
+
+    /**
+     * 收藏计数更新，规则与 {@link #onLikeChanged(Long, int)} 一致。
+     *
+     * @param postId 帖子 ID
+     * @param delta  计数变化量
+     * @return 更新后的收藏数
+     */
+    @Override
+    @Transactional
+    public int onCollectChanged(Long postId, int delta) {
+        return changeInteractionCount(postId, delta, "collect_count", PostDO::getCollectCount);
+    }
+
+    /**
+     * 按 ID 批量组装公开帖子摘要，供“我的点赞 / 我的收藏”按关系顺序回填。
+     * 只查公开可见帖子，隐藏 / 已删除的帖子不出现在结果中。
+     *
+     * @param postIds 帖子 ID 集合
+     * @return 以帖子 ID 为键的摘要
+     */
+    @Override
+    public Map<Long, PostSummaryVO> listSummariesByIds(Collection<Long> postIds) {
+        if (postIds == null || postIds.isEmpty()) {
+            return Map.of();
+        }
+        List<Long> ids = postIds.stream().filter(Objects::nonNull).distinct().toList();
+        if (ids.isEmpty()) {
+            return Map.of();
+        }
+
+        List<PostDO> rows = safeList(postMapper.selectList(new LambdaQueryWrapper<PostDO>()
+                .in(PostDO::getId, ids)
+                .in(PostDO::getStatus, List.of(0, 1))
+                .eq(PostDO::getIsDeleted, 0)));
+        if (rows.isEmpty()) {
+            return Map.of();
+        }
+
+        List<Long> visibleIds = rows.stream().map(PostDO::getId).filter(Objects::nonNull).toList();
+        Map<Long, List<ImageItemVO>> imagesByPost = loadImages(visibleIds);
+        Map<Long, List<TagVO>> tagsByPost = loadTags(visibleIds);
+        Map<Long, UserBriefVO> authors = loadAuthors(rows);
+        LoginUser viewer = UserContext.get();
+        InteractionStatus interactionStatus = loadInteractionStatus(
+                viewer == null ? null : viewer.userId(), visibleIds);
+
+        Map<Long, PostSummaryVO> result = new HashMap<>();
+        for (PostDO post : rows) {
+            List<ImageItemVO> images = imagesByPost.getOrDefault(post.getId(), List.of());
+            result.put(post.getId(), new PostSummaryVO(
+                    String.valueOf(post.getId()),
+                    post.getTitle(),
+                    images.isEmpty() ? "" : images.get(0).url(),
+                    authors.getOrDefault(post.getUserId(),
+                            UserBriefVO.placeholder(post.getUserId())),
+                    tagsByPost.getOrDefault(post.getId(), List.of()),
+                    value(post.getLikeCount()),
+                    value(post.getCommentCount()),
+                    value(post.getCollectCount()),
+                    value(post.getViewCount()),
+                    epochMillis(post.getPublishedAt()),
+                    interactionStatus.liked().contains(post.getId()),
+                    interactionStatus.collected().contains(post.getId())
+            ));
+        }
+        return result;
     }
 
     /**
@@ -281,9 +389,10 @@ public class PostServiceImpl implements PostService {
 
         int size = pageSize(rawSize);
         CursorCodec.CursorValue cursor = CursorCodec.decode(rawCursor);
+        Long userId = UserContext.require().userId();
 
         LambdaQueryWrapper<PostDO> query = new LambdaQueryWrapper<PostDO>()
-                .eq(PostDO::getUserId, UserContext.require().userId())
+                .eq(PostDO::getUserId, userId)
                 .eq(PostDO::getIsDeleted, 0);
         if (rawStatus != null) {
             query.eq(PostDO::getStatus, rawStatus);
@@ -312,6 +421,7 @@ public class PostServiceImpl implements PostService {
         Map<Long, List<ImageItemVO>> imagesByPost = loadImages(postIds);
         Map<Long, List<TagVO>> tagsByPost = loadTags(postIds);
         Map<Long, UserBriefVO> authors = loadAuthors(rows);
+        InteractionStatus interactionStatus = loadInteractionStatus(userId, postIds);
 
         List<MyPostSummaryVO> items = new ArrayList<>(rows.size());
         for (PostDO post : rows) {
@@ -334,8 +444,8 @@ public class PostServiceImpl implements PostService {
                     .auditReason(status == 2 || status == 3 ? post.getAuditReason() : null)
                     .createdAt(epochMillis(post.getCreatedAt()))
                     .updatedAt(epochMillis(post.getUpdatedAt()))
-                    .liked(false)       // 互动模块未接入
-                    .collected(false)   // 互动模块未接入
+                    .liked(interactionStatus.liked().contains(post.getId()))
+                    .collected(interactionStatus.collected().contains(post.getId()))
                     .build());
         }
 
@@ -401,6 +511,9 @@ public class PostServiceImpl implements PostService {
         Map<Long, List<ImageItemVO>> imagesByPost = loadImages(postIds);
         Map<Long, List<TagVO>> tagsByPost = loadTags(postIds);
         Map<Long, UserBriefVO> authors = loadAuthors(rows);
+        LoginUser viewer = UserContext.get();
+        InteractionStatus interactionStatus = loadInteractionStatus(
+                viewer == null ? null : viewer.userId(), postIds);
 
         List<PostSummaryVO> items = new ArrayList<>(rows.size());
         for (PostDO post : rows) {
@@ -417,8 +530,8 @@ public class PostServiceImpl implements PostService {
                     value(post.getCollectCount()),
                     value(post.getViewCount()),
                     epochMillis(post.getPublishedAt()),
-                    false,
-                    false
+                    interactionStatus.liked().contains(post.getId()),
+                    interactionStatus.collected().contains(post.getId())
             ));
         }
 
@@ -428,6 +541,58 @@ public class PostServiceImpl implements PostService {
             nextCursor = CursorCodec.encode(last.getPublishedAt(), last.getId());
         }
         return new CursorPage<>(items, nextCursor, hasMore);
+    }
+
+    /**
+     * 点赞 / 收藏计数的公共更新逻辑：只有 delta 非 0 才更新计数列，
+     * 更新不到行或帖子已不可见时抛 40402；最后返回数据库中的最新计数。
+     */
+    private int changeInteractionCount(Long postId, int delta, String column,
+                                       Function<PostDO, Integer> counter) {
+        if (delta != 0 && delta != 1 && delta != -1) {
+            throw new IllegalArgumentException("delta 只能是 -1、0 或 1");
+        }
+        if (delta != 0) {
+            LambdaUpdateWrapper<PostDO> update = new LambdaUpdateWrapper<PostDO>()
+                    .eq(PostDO::getId, postId)
+                    .eq(PostDO::getIsDeleted, 0)
+                    .in(PostDO::getStatus, List.of(0, 1))
+                    .set(PostDO::getLastInteractionAt, LocalDateTime.now());
+            if (delta > 0) {
+                update.setSql(column + " = " + column + " + 1");
+            } else {
+                update.setSql(column + " = IF(" + column + " > 0, " + column + " - 1, 0)");
+            }
+            if (postMapper.update(null, update) == 0) {
+                throw notVisible();
+            }
+        }
+
+        PostDO post = postMapper.selectById(postId);
+        if (post == null || isDeleted(post) || !publicVisible(post)) {
+            throw notVisible();
+        }
+        return value(counter.apply(post));
+    }
+
+    /**
+     * 登录用户按当前页帖子 ID 批量查点赞 / 收藏状态；游客或空页不查库。
+     */
+    private InteractionStatus loadInteractionStatus(Long userId, Collection<Long> postIds) {
+        if (userId == null || postIds == null || postIds.isEmpty()) {
+            return InteractionStatus.empty();
+        }
+        Set<Long> liked = interactionStatusProvider.likedPostIds(userId, postIds);
+        Set<Long> collected = interactionStatusProvider.collectedPostIds(userId, postIds);
+        return new InteractionStatus(
+                liked == null ? Set.of() : liked,
+                collected == null ? Set.of() : collected
+        );
+    }
+
+    private boolean publicVisible(PostDO post) {
+        int status = statusOf(post);
+        return status == 0 || status == 1;
     }
 
     private Map<Long, List<ImageItemVO>> loadImages(List<Long> postIds) {
@@ -895,5 +1060,15 @@ public class PostServiceImpl implements PostService {
 
     private BizException notVisible() {
         return new BizException(ErrorCode.POST_NOT_VISIBLE);
+    }
+
+    /**
+     * 当前请求用户对一批帖子的点赞 / 收藏状态。
+     */
+    private record InteractionStatus(Set<Long> liked, Set<Long> collected) {
+
+        private static InteractionStatus empty() {
+            return new InteractionStatus(Set.of(), Set.of());
+        }
     }
 }

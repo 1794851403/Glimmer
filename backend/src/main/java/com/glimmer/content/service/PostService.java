@@ -9,6 +9,7 @@ import com.glimmer.content.vo.PostDetailVO;
 import com.glimmer.content.vo.PostSummaryVO;
 
 import java.util.Collection;
+import java.util.Map;
 
 /**
  * 帖子内容模块对外的服务：发布、编辑、删除、重提、详情、列表与管理端审核。
@@ -36,6 +37,53 @@ public interface PostService {
      * @return 帖子详情
      */
     PostDetailVO getDetail(String postId);
+
+    /**
+     * 解析并校验公开可见帖子，返回帖子 ID。
+     *
+     * <p>供 interaction 模块点赞、收藏、评论前复用；帖子不存在、ID 非法、已删除、
+     * 状态不是 0/1 时统一返回 40402。
+     *
+     * @param postId 帖子 ID，允许数字字符串
+     * @return 帖子 ID
+     */
+    Long resolvePublicPostId(String postId);
+
+    /**
+     * 点赞关系变化后更新帖子点赞计数。
+     *
+     * <p>由 interaction 在写 {@code t_like} 成功后调用；{@code delta} 为 +1 / -1 / 0。
+     * 0 表示关系没有变化（重复点赞 / 取消），只返回当前计数，不更新计数列。
+     * 更新与查询在同一事务内完成，帖子不可见时返回 40402。
+     *
+     * @param postId 帖子 ID
+     * @param delta  计数变化量
+     * @return 更新后的点赞数
+     */
+    int onLikeChanged(Long postId, int delta);
+
+    /**
+     * 收藏关系变化后更新帖子收藏计数。
+     *
+     * <p>规则与 {@link #onLikeChanged(Long, int)} 一致，只是更新 {@code collect_count}。
+     *
+     * @param postId 帖子 ID
+     * @param delta  计数变化量
+     * @return 更新后的收藏数
+     */
+    int onCollectChanged(Long postId, int delta);
+
+    /**
+     * 按帖子 ID 批量查询公开可见帖子摘要。
+     *
+     * <p>供 interaction 的“我的点赞 / 我的收藏”按关系记录顺序回填帖子数据；
+     * 只返回 {@code status IN (0,1) AND is_deleted=0} 的帖子，返回结果以帖子 ID 为键。
+     * 当前登录用户存在时同时补 {@code liked} / {@code collected}。
+     *
+     * @param postIds 帖子 ID 集合
+     * @return 以帖子 ID 为键的摘要；没有可见帖子时返回空 Map
+     */
+    Map<Long, PostSummaryVO> listSummariesByIds(Collection<Long> postIds);
 
     /**
      * 按作者集合分页查询公开可见帖子，按发布时间倒序。

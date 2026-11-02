@@ -16,6 +16,7 @@ import com.glimmer.content.mapper.PostImageMapper;
 import com.glimmer.content.mapper.PostMapper;
 import com.glimmer.content.mapper.PostTagMapper;
 import com.glimmer.content.mapper.TagMapper;
+import com.glimmer.content.service.InteractionStatusProvider;
 import com.glimmer.content.vo.ImageItemVO;
 import com.glimmer.content.vo.MyPostSummaryVO;
 import com.glimmer.content.vo.PostAuditVO;
@@ -36,6 +37,7 @@ import java.time.LocalDateTime;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -55,6 +57,7 @@ class PostServiceImplTest {
     private PostTagMapper postTagMapper;
     private TagMapper tagMapper;
     private UserService userService;
+    private InteractionStatusProvider interactionStatusProvider;
     private PostServiceImpl postService;
 
     @BeforeAll
@@ -71,7 +74,9 @@ class PostServiceImplTest {
         postTagMapper = mock(PostTagMapper.class);
         tagMapper = mock(TagMapper.class);
         userService = mock(UserService.class);
-        postService = new PostServiceImpl(postMapper, postImageMapper, postTagMapper, tagMapper, userService);
+        interactionStatusProvider = mock(InteractionStatusProvider.class);
+        postService = new PostServiceImpl(postMapper, postImageMapper, postTagMapper, tagMapper, userService,
+                interactionStatusProvider);
         UserContext.set(new LoginUser(1L, "USER"));
         when(postMapper.insert(any(PostDO.class))).thenAnswer(invocation -> {
             PostDO post = invocation.getArgument(0);
@@ -687,6 +692,146 @@ class PostServiceImplTest {
         assertThatThrownBy(() -> postService.approve("1001"))
                 .isInstanceOfSatisfying(BizException.class,
                         e -> assertThat(e.errorCode()).isEqualTo(ErrorCode.AUDIT_STATE_CHANGED));
+    }
+
+    @Test
+    void shouldFillInteractionStatusInDetail() {
+        when(postMapper.selectById(1001L)).thenReturn(post(1001L, 1L, 1,
+                LocalDateTime.of(2026, 10, 29, 12, 0)));
+        when(postImageMapper.selectList(any())).thenReturn(List.of(
+                image(1001L, "https://cdn.example.com/1.jpg", 0)));
+        when(postTagMapper.selectList(any())).thenReturn(List.of());
+        when(userService.getBrief(1L)).thenReturn(brief(1L, "小光"));
+        when(interactionStatusProvider.likedPostIds(1L, List.of(1001L)))
+                .thenReturn(Set.of(1001L));
+        when(interactionStatusProvider.collectedPostIds(1L, List.of(1001L)))
+                .thenReturn(Set.of());
+
+        PostDetailVO detail = postService.getDetail("1001");
+
+        assertThat(detail.liked()).isTrue();
+        assertThat(detail.collected()).isFalse();
+    }
+
+    @Test
+    void shouldResolvePublicPostId() {
+        when(postMapper.selectById(1001L)).thenReturn(post(1001L, 1L, 1,
+                LocalDateTime.of(2026, 10, 29, 12, 0)));
+
+        assertThat(postService.resolvePublicPostId("1001")).isEqualTo(1001L);
+    }
+
+    @Test
+    void shouldRejectInvisiblePostWhenResolving() {
+        PostDO hidden = post(1001L, 1L, 2, LocalDateTime.of(2026, 10, 29, 12, 0));
+        when(postMapper.selectById(1001L)).thenReturn(hidden);
+
+        assertThatThrownBy(() -> postService.resolvePublicPostId("1001"))
+                .isInstanceOfSatisfying(BizException.class,
+                        e -> assertThat(e.errorCode()).isEqualTo(ErrorCode.POST_NOT_VISIBLE));
+
+        PostDO deleted = post(1002L, 1L, 1, LocalDateTime.of(2026, 10, 29, 12, 0));
+        deleted.setIsDeleted(1);
+        when(postMapper.selectById(1002L)).thenReturn(deleted);
+        assertThatThrownBy(() -> postService.resolvePublicPostId("1002"))
+                .isInstanceOfSatisfying(BizException.class,
+                        e -> assertThat(e.errorCode()).isEqualTo(ErrorCode.POST_NOT_VISIBLE));
+
+        assertThatThrownBy(() -> postService.resolvePublicPostId("abc"))
+                .isInstanceOfSatisfying(BizException.class,
+                        e -> assertThat(e.errorCode()).isEqualTo(ErrorCode.POST_NOT_VISIBLE));
+    }
+
+    @Test
+    void shouldChangeLikeCountAndReturnLatestValue() {
+        PostDO liked = post(1001L, 1L, 1, LocalDateTime.of(2026, 10, 29, 12, 0));
+        liked.setLikeCount(13);
+        when(postMapper.update(isNull(), any())).thenReturn(1);
+        when(postMapper.selectById(1001L)).thenReturn(liked);
+
+        int likeCount = postService.onLikeChanged(1001L, 1);
+
+        assertThat(likeCount).isEqualTo(13);
+        verify(postMapper).update(isNull(), any());
+    }
+
+    @Test
+    void shouldOnlyReadCountWhenDeltaIsZero() {
+        when(postMapper.selectById(1001L)).thenReturn(post(1001L, 1L, 1,
+                LocalDateTime.of(2026, 10, 29, 12, 0)));
+
+        int likeCount = postService.onLikeChanged(1001L, 0);
+
+        assertThat(likeCount).isEqualTo(12);
+        verify(postMapper, never()).update(isNull(), any());
+    }
+
+    @Test
+    void shouldRejectInteractionWhenPostNotVisible() {
+        when(postMapper.update(isNull(), any())).thenReturn(0);
+
+        assertThatThrownBy(() -> postService.onLikeChanged(1001L, 1))
+                .isInstanceOfSatisfying(BizException.class,
+                        e -> assertThat(e.errorCode()).isEqualTo(ErrorCode.POST_NOT_VISIBLE));
+        verify(postMapper, never()).selectById(any());
+
+        assertThatThrownBy(() -> postService.onCollectChanged(1001L, -1))
+                .isInstanceOfSatisfying(BizException.class,
+                        e -> assertThat(e.errorCode()).isEqualTo(ErrorCode.POST_NOT_VISIBLE));
+    }
+
+    @Test
+    void shouldRejectInvalidInteractionDelta() {
+        assertThatThrownBy(() -> postService.onLikeChanged(1001L, 2))
+                .isInstanceOf(IllegalArgumentException.class);
+        verifyNoInteractions(postMapper);
+    }
+
+    @Test
+    void shouldChangeCollectCount() {
+        PostDO collected = post(1001L, 1L, 1, LocalDateTime.of(2026, 10, 29, 12, 0));
+        collected.setCollectCount(5);
+        when(postMapper.update(isNull(), any())).thenReturn(1);
+        when(postMapper.selectById(1001L)).thenReturn(collected);
+
+        assertThat(postService.onCollectChanged(1001L, 1)).isEqualTo(5);
+    }
+
+    @Test
+    void shouldListSummariesByIdsWithInteractionStatus() {
+        LocalDateTime now = LocalDateTime.of(2026, 10, 29, 12, 0);
+        when(postMapper.selectList(any())).thenReturn(List.of(
+                post(1001L, 1L, 1, now),
+                post(1002L, 2L, 0, now.minusMinutes(1))));
+        when(postImageMapper.selectList(any())).thenReturn(List.of(
+                image(1001L, "https://cdn.example.com/1.jpg", 0)));
+        when(postTagMapper.selectList(any())).thenReturn(List.of(postTag(1001L, 3L)));
+        when(tagMapper.selectBatchIds(any())).thenReturn(List.of(tag(3L, "露营")));
+        when(userService.getBriefs(any())).thenReturn(Map.of(
+                1L, brief(1L, "小光"),
+                2L, brief(2L, "阿野")));
+        when(interactionStatusProvider.likedPostIds(1L, List.of(1001L, 1002L)))
+                .thenReturn(Set.of(1001L));
+        when(interactionStatusProvider.collectedPostIds(1L, List.of(1001L, 1002L)))
+                .thenReturn(Set.of(1002L));
+
+        Map<Long, PostSummaryVO> summaries = postService.listSummariesByIds(
+                List.of(1001L, 1002L));
+
+        assertThat(summaries).containsOnlyKeys(1001L, 1002L);
+        assertThat(summaries.get(1001L).liked()).isTrue();
+        assertThat(summaries.get(1001L).collected()).isFalse();
+        assertThat(summaries.get(1002L).liked()).isFalse();
+        assertThat(summaries.get(1002L).collected()).isTrue();
+        assertThat(summaries.get(1001L).tags()).extracting(TagVO::name)
+                .containsExactly("露营");
+    }
+
+    @Test
+    void shouldReturnEmptySummariesForEmptyIds() {
+        assertThat(postService.listSummariesByIds(null)).isEmpty();
+        assertThat(postService.listSummariesByIds(List.of())).isEmpty();
+        verifyNoInteractions(postMapper);
     }
 
     private TagDO tag(long id) {
