@@ -798,6 +798,43 @@ class PostServiceImplTest {
     }
 
     @Test
+    void shouldChangeCommentCountAndReturnLatestValue() {
+        PostDO commented = post(1001L, 1L, 1, LocalDateTime.of(2026, 11, 3, 12, 0));
+        commented.setCommentCount(7);
+        when(postMapper.update(isNull(), any())).thenReturn(1);
+        when(postMapper.selectById(1001L)).thenReturn(commented);
+
+        int commentCount = postService.onCommentChanged(1001L, 1);
+
+        assertThat(commentCount).isEqualTo(7);
+        verify(postMapper).update(isNull(), any());
+    }
+
+    @Test
+    void shouldAllowCommentCountUpdateForNonPublicPost() {
+        PostDO takenDown = post(1001L, 1L, 3, LocalDateTime.of(2026, 11, 3, 12, 0));
+        takenDown.setCommentCount(6);
+        when(postMapper.update(isNull(), any())).thenReturn(1);
+        when(postMapper.selectById(1001L)).thenReturn(takenDown);
+
+        int commentCount = postService.onCommentChanged(1001L, -1);
+
+        assertThat(commentCount).isEqualTo(6);
+        verify(postMapper).update(isNull(), any());
+    }
+
+    @Test
+    void shouldCheckPostAuthorWithoutStatusRestriction() {
+        when(postMapper.selectById(1001L))
+                .thenReturn(post(1001L, 1L, 3, LocalDateTime.of(2026, 11, 3, 12, 0)));
+
+        assertThat(postService.isPostAuthor(1001L, 1L)).isTrue();
+        assertThat(postService.isPostAuthor(1001L, 2L)).isFalse();
+        assertThat(postService.isPostAuthor(null, 1L)).isFalse();
+        assertThat(postService.isPostAuthor(1001L, null)).isFalse();
+    }
+
+    @Test
     void shouldListSummariesByIdsWithInteractionStatus() {
         LocalDateTime now = LocalDateTime.of(2026, 10, 29, 12, 0);
         when(postMapper.selectList(any())).thenReturn(List.of(

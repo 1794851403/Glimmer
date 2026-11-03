@@ -255,7 +255,7 @@ public class PostServiceImpl implements PostService {
     @Override
     @Transactional
     public int onLikeChanged(Long postId, int delta) {
-        return changeInteractionCount(postId, delta, "like_count", PostDO::getLikeCount);
+        return changeInteractionCount(postId, delta, "like_count", PostDO::getLikeCount, true);
     }
 
     /**
@@ -268,7 +268,37 @@ public class PostServiceImpl implements PostService {
     @Override
     @Transactional
     public int onCollectChanged(Long postId, int delta) {
-        return changeInteractionCount(postId, delta, "collect_count", PostDO::getCollectCount);
+        return changeInteractionCount(postId, delta, "collect_count", PostDO::getCollectCount, true);
+    }
+
+    /**
+     * 评论计数更新：新增时要求帖子公开可见，删除时只要求帖子行存在。
+     *
+     * @param postId 帖子 ID
+     * @param delta  计数变化量
+     * @return 更新后的评论数
+     */
+    @Override
+    @Transactional
+    public int onCommentChanged(Long postId, int delta) {
+        return changeInteractionCount(postId, delta, "comment_count", PostDO::getCommentCount,
+                delta > 0);
+    }
+
+    /**
+     * 帖子行存在且作者匹配即为帖子作者；不限制帖子状态，便于清理已下架帖子的评论。
+     *
+     * @param postId 帖子 ID
+     * @param userId 用户 ID
+     * @return 是帖子作者返回 {@code true}
+     */
+    @Override
+    public boolean isPostAuthor(Long postId, Long userId) {
+        if (postId == null || userId == null) {
+            return false;
+        }
+        PostDO post = postMapper.selectById(postId);
+        return post != null && Objects.equals(post.getUserId(), userId);
     }
 
     /**
@@ -544,20 +574,23 @@ public class PostServiceImpl implements PostService {
     }
 
     /**
-     * 点赞 / 收藏计数的公共更新逻辑：只有 delta 非 0 才更新计数列，
-     * 更新不到行或帖子已不可见时抛 40402；最后返回数据库中的最新计数。
+     * 互动计数的公共更新逻辑：只有 delta 非 0 才更新计数列；
+     * {@code publicOnly=true} 时要求帖子未删除且公开可见，false 时只要求帖子行存在。
+     * 最后返回数据库中的最新计数。
      */
     private int changeInteractionCount(Long postId, int delta, String column,
-                                       Function<PostDO, Integer> counter) {
+                                       Function<PostDO, Integer> counter, boolean publicOnly) {
         if (delta != 0 && delta != 1 && delta != -1) {
             throw new IllegalArgumentException("delta 只能是 -1、0 或 1");
         }
         if (delta != 0) {
             LambdaUpdateWrapper<PostDO> update = new LambdaUpdateWrapper<PostDO>()
                     .eq(PostDO::getId, postId)
-                    .eq(PostDO::getIsDeleted, 0)
-                    .in(PostDO::getStatus, List.of(0, 1))
                     .set(PostDO::getLastInteractionAt, LocalDateTime.now());
+            if (publicOnly) {
+                update.eq(PostDO::getIsDeleted, 0)
+                        .in(PostDO::getStatus, List.of(0, 1));
+            }
             if (delta > 0) {
                 update.setSql(column + " = " + column + " + 1");
             } else {
@@ -569,7 +602,7 @@ public class PostServiceImpl implements PostService {
         }
 
         PostDO post = postMapper.selectById(postId);
-        if (post == null || isDeleted(post) || !publicVisible(post)) {
+        if (post == null || (publicOnly && (isDeleted(post) || !publicVisible(post)))) {
             throw notVisible();
         }
         return value(counter.apply(post));

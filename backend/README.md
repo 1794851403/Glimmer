@@ -31,12 +31,16 @@ src/main/java/com/glimmer/
 │   └── service/        # FeedService 接口
 │       └── impl/       # FeedServiceImpl：读关注关系后委托 PostService 查公开帖子
 ├── interaction/
-│   ├── controller/     # posts/{postId}/like|collect；users/me/likes|collections
-│   ├── entity/         # LikeDO / CollectDO
+│   ├── controller/     # posts/{postId}/like|collect；users/me/likes|collections；
+│   │                   # posts/{postId}/comments；comments/{commentId}/replies；comments/{commentId}
+│   ├── dto/            # 入参：CreateCommentDTO
+│   ├── entity/         # LikeDO / CollectDO / CommentDO
 │   ├── mapper/         # LikeMapper / CollectMapper（INSERT IGNORE 幂等插入）
-│   ├── vo/             # LikeResultVO / CollectResultVO
-│   └── service/        # LikeService、CollectService 接口
+│   │                   # CommentMapper：当前页根评论的 replyCount 批量统计
+│   ├── vo/             # LikeResultVO / CollectResultVO / CommentVO / ReplyVO
+│   └── service/        # LikeService、CollectService、CommentService 接口
 │       └── impl/       # LikeServiceImpl / CollectServiceImpl：关系 + content 计数同一事务
+│                       # CommentServiceImpl：两级评论树 + 一级列表 replyCount + 软删除
 │                       # InteractionStatusProviderImpl：实现 content 定义的只读状态端口
 └── user/
     ├── controller/     # auth/sms-code|login|logout；users/me GET / PATCH；
@@ -210,6 +214,43 @@ curl -s 'http://localhost:8080/api/v1/users/me/collections?size=20' \
 - 只有 `INSERT IGNORE` / `DELETE` 真正影响行时才变更计数，重复操作只读取当前计数；
 - 帖子不存在或不可见统一 `40402`；我的列表只返回当前 `status IN (0,1) AND is_deleted=0` 的帖子。
 
+## 验证评论
+
+```bash
+# 发表一级评论
+curl -s -X POST http://localhost:8080/api/v1/posts/<postId>/comments \
+  -H "Authorization: Bearer <accessToken>" \
+  -H 'Content-Type: application/json' \
+  -d '{"content":"这地方太美了，求营地名字！","parentId":"0","replyToUserId":null}'
+
+# 回复根评论（replyToUserId 可省略，默认根评论作者）
+curl -s -X POST http://localhost:8080/api/v1/posts/<postId>/comments \
+  -H "Authorization: Bearer <accessToken>" \
+  -H 'Content-Type: application/json' \
+  -d '{"content":"同问！","parentId":"<rootCommentId>","replyToUserId":null}'
+
+# 回复某条回复（必须显式传 replyToUserId，parentId 可传该回复 ID，服务端归一化到根评论）
+curl -s -X POST http://localhost:8080/api/v1/posts/<postId>/comments \
+  -H "Authorization: Bearer <accessToken>" \
+  -H 'Content-Type: application/json' \
+  -d '{"content":"我也想知道","parentId":"<replyId>","replyToUserId":"<replyAuthorId>"}'
+
+# 一级评论：只返回根评论 + replyCount
+curl -s 'http://localhost:8080/api/v1/posts/<postId>/comments?size=20'
+
+# 展开某一级评论的二级回复：createdAt ASC, id ASC
+curl -s 'http://localhost:8080/api/v1/comments/<rootCommentId>/replies?size=20'
+
+# 删除：评论作者 / 帖子作者 / 管理员；软删除，重复删除返回 204
+curl -s -X DELETE http://localhost:8080/api/v1/comments/<commentId> \
+  -H "Authorization: Bearer <accessToken>"
+```
+
+- 评论只做两级，回复的 `parentId` 一律归一化为根评论 ID，`reply_to_user_id` 记录实际被回复人；
+- 一级列表不返回二级回复内容，`replyCount` 为未删除回复数；已删除且有回复的根评论返回占位，无回复则不再返回；
+- 评论写入与 `t_post.comment_count` 在同一 MySQL 事务内提交，计数仍由 content 的 Service 写；
+- 本轮不发送情感分析 MQ，`sentiment` 暂为 NULL；评论 `sort=hot` 待热榜模块接入。
+
 ## 验证关注流
 
 ```bash
@@ -291,14 +332,14 @@ curl -s -X POST http://localhost:8080/api/v1/admin/posts/<postId>/restore \
 mvn test
 ```
 
-当前 114 个单元测试：JWT、`UserServiceImpl`、`FileServiceImpl`、`PostServiceImpl`、`TagServiceImpl`、`FeedServiceImpl`、`LikeServiceImpl`、`CollectServiceImpl`、`InteractionStatusProviderImpl`；
+当前 140 个单元测试：JWT、`UserServiceImpl`、`FileServiceImpl`、`PostServiceImpl`、`TagServiceImpl`、`FeedServiceImpl`、`LikeServiceImpl`、`CollectServiceImpl`、`CommentServiceImpl`、`InteractionStatusProviderImpl`；
 涉及 MyBatis-Plus 更新条件的用例在 `@BeforeAll` 注册实体的 `TableInfo`；接 Testcontainers 后补
 MySQL / Redis / RabbitMQ / OSS 集成测试与 ArchUnit 模块边界测试。
 
 ## 待办
 
-- 评论 / 回复与情感分析；
-- 管理端帖子列表 / 详情 / 情感分析；
+- 评论情感分析 MQ（`sentiment` 落库）与评论热榜；
+- 管理端帖子列表 / 详情 / 评论情感分布；
 - Feed 写扩散、Redis 收件箱、热榜与推荐流；
 - OSS 直传（预签名 URL）、magic bytes 校验、图片内容审核（演进）；
 - DeepSeek / ES 的配置与实现（按 M1/M2）；

@@ -74,6 +74,31 @@ public interface PostService {
     int onCollectChanged(Long postId, int delta);
 
     /**
+     * 评论关系变化后更新帖子评论计数。
+     *
+     * <p>由 interaction 在插入或软删除 {@code t_comment} 成功后调用；{@code delta} 为 +1 / -1 / 0。
+     * 0 表示没有实际变化（重复删除），只返回当前计数，不更新计数列。
+     * 新增评论要求帖子公开可见；删除评论只要求帖子行存在，避免帖子下架后无法清理评论。
+     *
+     * @param postId 帖子 ID
+     * @param delta  计数变化量
+     * @return 更新后的评论数
+     */
+    int onCommentChanged(Long postId, int delta);
+
+    /**
+     * 判断用户是否为帖子作者。
+     *
+     * <p>供 interaction 删除评论时校验“帖子作者”权限；帖子行存在且作者匹配即返回 true，
+     * 不限制帖子当前状态，便于作者清理已下架 / 已删除帖子下的评论。
+     *
+     * @param postId 帖子 ID
+     * @param userId 用户 ID
+     * @return 是帖子作者返回 {@code true}
+     */
+    boolean isPostAuthor(Long postId, Long userId);
+
+    /**
      * 按帖子 ID 批量查询公开可见帖子摘要。
      *
      * <p>供 interaction 的“我的点赞 / 我的收藏”按关系记录顺序回填帖子数据；
