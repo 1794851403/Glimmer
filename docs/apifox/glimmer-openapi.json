@@ -2,8 +2,8 @@
   "openapi": "3.0.3",
   "info": {
     "title": "微光 Glimmer API",
-    "version": "1.8.6",
-    "description": "微光 Glimmer 的 OpenAPI 3.0 契约，与 `docs/04-接口设计文档.md` v1.16（已定稿）一致，可直接导入 Apifox。\n\n**通用约定**\n- Base URL：本地 `http://localhost:8080`；后端在 VM 时 `http://192.168.157.129:8080`；生产示例 `https://api.glimmer.example`；业务接口统一 `/api/v1`，WebSocket 为 `/ws/danmaku`。\n- 鉴权：单 JWT（HS256，7 天）+ Redis 白名单，单用户单 Token；默认拒绝，仅白名单按「方法 + 路径」精确放行。全局 `bearerAuth`，白名单接口 `security: []`，可选登录接口同时声明 Token 与匿名。\n- `/api/v1/admin/**` 额外要求 `role=ADMIN`，OpenAPI 无法表达角色，已在各管理端接口 description 中注明。\n- ID 一律字符串（BIGINT 防 JS 精度丢失）；时间为 epoch 毫秒整数；金额为字符串十进制；布尔为 true/false。\n- 响应信封：`{ code, message, data, traceId }`；HTTP 状态与业务 code 同时表达语义。\n- 用户端列表用游标分页 `CursorPage<T>`；管理端列表用 PageHelper 页码分页 `PageResult<T>`。\n- AI 流式接口为 `text/event-stream`（SSE），禁止使用原生 EventSource 自动重连；弹幕为 WebSocket 帧协议，发送者不提前渲染、不做 ACK。\n\n**错误码**：40001~40004 参数 / 内容错误；40101 / 40102 未认证 / 过期；40301~40303 权限；40401~40403 不存在；40901/40903/40904 状态冲突；42901 限流；43001~43005 秒杀；44001~44004 AI；45001~45003 上传；50000 / 50301 服务端与依赖。\n\n**v1.16 变更**：点赞 / 取消点赞、收藏 / 取消收藏、我的点赞与我的收藏按 MVP 落地。关系写 `t_like` / `t_collect`，计数更新由 interaction 调用 content 的 Service 完成，关系与 `t_post` 计数在同一 MySQL 事务内提交；重复操作幂等（以受影响行数为准）；我的点赞 / 收藏按关系 `created_at DESC, id DESC` 游标分页，只返回当前仍公开可见的帖子。Redis 计数 + 异步落库为演进项。\n\n**v1.14 变更**：关注 / 取关、粉丝 / 关注列表、帖子编辑 / 删除 / 重提与管理端审核状态流转按 MVP 落地。关注关系与双方计数在 MySQL 同一事务内维护；所有接口直接读写 MySQL，详情缓存 / Feed 写扩散 / ES 索引随对应模块接入；管理端审核接口返回 `PostAudit`，管理端列表 / 详情随后实现。",
+    "version": "1.8.7",
+    "description": "微光 Glimmer 的 OpenAPI 3.0 契约，与 `docs/04-接口设计文档.md` v1.17（已定稿）一致，可直接导入 Apifox。\n\n**通用约定**\n- Base URL：本地 `http://localhost:8080`；后端在 VM 时 `http://192.168.157.129:8080`；生产示例 `https://api.glimmer.example`；业务接口统一 `/api/v1`，WebSocket 为 `/ws/danmaku`。\n- 鉴权：单 JWT（HS256，7 天）+ Redis 白名单，单用户单 Token；默认拒绝，仅白名单按「方法 + 路径」精确放行。全局 `bearerAuth`，白名单接口 `security: []`，可选登录接口同时声明 Token 与匿名。\n- `/api/v1/admin/**` 额外要求 `role=ADMIN`，OpenAPI 无法表达角色，已在各管理端接口 description 中注明。\n- ID 一律字符串（BIGINT 防 JS 精度丢失）；时间为 epoch 毫秒整数；金额为字符串十进制；布尔为 true/false。\n- 响应信封：`{ code, message, data, traceId }`；HTTP 状态与业务 code 同时表达语义。\n- 用户端列表用游标分页 `CursorPage<T>`；管理端列表用 PageHelper 页码分页 `PageResult<T>`。\n- AI 流式接口为 `text/event-stream`（SSE），禁止使用原生 EventSource 自动重连；弹幕为 WebSocket 帧协议，发送者不提前渲染、不做 ACK。\n\n**错误码**：40001~40004 参数 / 内容错误；40101 / 40102 未认证 / 过期；40301~40303 权限；40401~40403 不存在；40901/40903/40904 状态冲突；42901 限流；43001~43005 秒杀；44001~44004 AI；45001~45003 上传；50000 / 50301 服务端与依赖。\n\n**v1.17 变更**：评论 MVP 调整为「一级评论列表 + 按需加载二级回复」。帖子评论列表只返回根评论与 `replyCount`，不返回任何二级回复内容；用户点击「查看全部 N 条回复」后再调用回复列表接口分页获取。`Comment` 移除 `previewReplies`，`replyCount` 统计该根评论下未删除的二级回复数；已删除但有回复的根评论仍以占位返回并保留 `replyCount`。回复列表按 `createdAt ASC, id ASC` 正序，并补充帖子可见性校验（不可见 `40402`）。评论内容按纯文本存储、保留原文，服务端不做 HTML 转义，前端用 `textContent` 渲染。\n\n**v1.16 变更**：点赞 / 取消点赞、收藏 / 取消收藏、我的点赞与我的收藏按 MVP 落地。关系写 `t_like` / `t_collect`，计数更新由 interaction 调用 content 的 Service 完成，关系与 `t_post` 计数在同一 MySQL 事务内提交；重复操作幂等（以受影响行数为准）；我的点赞 / 收藏按关系 `created_at DESC, id DESC` 游标分页，只返回当前仍公开可见的帖子。Redis 计数 + 异步落库为演进项。\n\n**v1.14 变更**：关注 / 取关、粉丝 / 关注列表、帖子编辑 / 删除 / 重提与管理端审核状态流转按 MVP 落地。关注关系与双方计数在 MySQL 同一事务内维护；所有接口直接读写 MySQL，详情缓存 / Feed 写扩散 / ES 索引随对应模块接入；管理端审核接口返回 `PostAudit`，管理端列表 / 详情随后实现。",
     "contact": {
       "name": "Glimmer 项目"
     },
@@ -3931,25 +3931,7 @@
                     },
                     "replyToUser": null,
                     "deleted": false,
-                    "replyCount": 2,
-                    "previewReplies": [
-                      {
-                        "id": "5002",
-                        "commentId": "5001",
-                        "content": "同问！",
-                        "author": {
-                          "id": "3",
-                          "nickname": "小满",
-                          "avatarUrl": "https://cdn.example.com/avatar/3.png"
-                        },
-                        "replyToUser": {
-                          "id": "2",
-                          "nickname": "阿野",
-                          "avatarUrl": "https://cdn.example.com/avatar/2.png"
-                        },
-                        "createdAt": 1730000001000
-                      }
-                    ],
+                    "replyCount": 0,
                     "createdAt": 1730000000000
                   },
                   "traceId": "4f7c2a9e8b1d4c6f"
@@ -4054,7 +4036,7 @@
           "评论"
         ],
         "summary": "评论列表",
-        "description": "只返回一级评论；每条带最多 2 条回复预览，按 `createdAt DESC, id DESC`。一级评论被删除但有回复时返回占位（`deleted=true`、`content=\"该评论已删除\"`、`author=null`），保留回复树。情感分析结果不向普通用户暴露。\n\n鉴权：可选登录；匿名可访问，带合法 Token 时补充个性化字段。",
+        "description": "只返回一级评论与 `replyCount`，不返回任何二级回复内容；二级回复由用户点击「查看全部 N 条回复」后调用回复列表接口按需加载。按 `createdAt DESC, id DESC` 游标分页。`replyCount` 为该根评论下未删除的二级回复数。一级评论被删除但有回复时返回占位（`deleted=true`、`content=\"该评论已删除\"`、`author=null`），`replyCount` 保持真实值；无回复的已删除一级评论不返回。情感分析结果不向普通用户暴露。\n\n鉴权：可选登录；匿名可访问，带合法 Token 时补充个性化字段。",
         "operationId": "listComments",
         "security": [
           {
@@ -4133,24 +4115,6 @@
                         "replyToUser": null,
                         "deleted": false,
                         "replyCount": 2,
-                        "previewReplies": [
-                          {
-                            "id": "5002",
-                            "commentId": "5001",
-                            "content": "同问！",
-                            "author": {
-                              "id": "3",
-                              "nickname": "小满",
-                              "avatarUrl": "https://cdn.example.com/avatar/3.png"
-                            },
-                            "replyToUser": {
-                              "id": "2",
-                              "nickname": "阿野",
-                              "avatarUrl": "https://cdn.example.com/avatar/2.png"
-                            },
-                            "createdAt": 1730000001000
-                          }
-                        ],
                         "createdAt": 1730000000000
                       }
                     ],
@@ -4192,7 +4156,7 @@
           "评论"
         ],
         "summary": "回复列表",
-        "description": "`commentId` 必须是根评论，否则 `40001`；按创建时间倒序。\n\n鉴权：可选登录；匿名可访问，带合法 Token 时补充个性化字段。",
+        "description": "`commentId` 必须是根评论，否则 `40001`；按 `createdAt ASC, id ASC` 正序分页；帖子不存在或当前不可见时 `40402`。\n\n鉴权：可选登录；匿名可访问，带合法 Token 时补充个性化字段。",
         "operationId": "listReplies",
         "security": [
           {
@@ -4305,13 +4269,22 @@
             }
           },
           "404": {
-            "description": "40403 评论不存在或已删除",
+            "description": "40402 帖子不存在或当前不可见；40403 评论不存在或已删除",
             "content": {
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/ErrorEnvelope"
                 },
                 "examples": {
+                  "40402": {
+                    "summary": "40402 帖子不存在或当前不可见",
+                    "value": {
+                      "code": 40402,
+                      "message": "帖子不存在或当前不可见",
+                      "data": null,
+                      "traceId": "4f7c2a9e8b1d4c6f"
+                    }
+                  },
                   "40403": {
                     "summary": "40403 评论不存在或已删除",
                     "value": {
@@ -4334,7 +4307,7 @@
           "评论"
         ],
         "summary": "删除评论",
-        "description": "允许评论作者、帖子作者、管理员。逻辑删除 `is_deleted=1`，`comment_count` 递减；一级评论有回复时保留占位，回复树不断裂；重复删除幂等返回 `204`。\n\n鉴权：登录。",
+        "description": "允许评论作者、帖子作者、管理员。逻辑删除 `is_deleted=1`，`comment_count` 递减（一级评论与二级回复都计入）；删除二级回复后其所属一级评论的 `replyCount` 同步减少；一级评论有回复时保留占位（`replyCount` 仍为未删除回复数），回复树不断裂；重复删除幂等返回 `204`。\n\n鉴权：登录。",
         "operationId": "deleteComment",
         "security": [
           {
@@ -9455,13 +9428,8 @@
           "replyCount": {
             "type": "integer",
             "format": "int32",
-            "minimum": 0
-          },
-          "previewReplies": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/Reply"
-            }
+            "minimum": 0,
+            "description": "该根评论下未删除的二级回复数；用于显示「查看全部 N 条回复」，不包含一级评论本身"
           },
           "createdAt": {
             "type": "integer",
@@ -9476,7 +9444,6 @@
           "content",
           "deleted",
           "replyCount",
-          "previewReplies",
           "createdAt"
         ]
       },
