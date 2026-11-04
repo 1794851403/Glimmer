@@ -2,7 +2,11 @@ package com.glimmer.content.service.impl;
 
 import com.baomidou.mybatisplus.core.MybatisConfiguration;
 import com.baomidou.mybatisplus.core.metadata.TableInfoHelper;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.github.pagehelper.Page;
+import com.github.pagehelper.PageHelper;
 import com.glimmer.common.api.CursorPage;
+import com.glimmer.common.api.PageResult;
 import com.glimmer.common.exception.BizException;
 import com.glimmer.common.exception.ErrorCode;
 import com.glimmer.common.web.LoginUser;
@@ -17,6 +21,7 @@ import com.glimmer.content.mapper.PostMapper;
 import com.glimmer.content.mapper.PostTagMapper;
 import com.glimmer.content.mapper.TagMapper;
 import com.glimmer.content.service.InteractionStatusProvider;
+import com.glimmer.content.vo.AdminPostSummaryVO;
 import com.glimmer.content.vo.ImageItemVO;
 import com.glimmer.content.vo.MyPostSummaryVO;
 import com.glimmer.content.vo.PostAuditVO;
@@ -34,6 +39,7 @@ import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -88,6 +94,7 @@ class PostServiceImplTest {
     @AfterEach
     void tearDown() {
         UserContext.clear();
+        PageHelper.clearPage();
     }
 
     @Test
@@ -268,6 +275,9 @@ class PostServiceImplTest {
         assertThat(detail.isFollowingAuthor()).isFalse();
         assertThat(detail.liked()).isFalse();
         assertThat(detail.collected()).isFalse();
+        assertThat(detail.auditedAt()).isNull();
+        assertThat(detail.auditedBy()).isNull();
+        assertThat(detail.canAudit()).isNull();
     }
 
     @Test
@@ -314,6 +324,90 @@ class PostServiceImplTest {
                 .isInstanceOfSatisfying(BizException.class,
                         e -> assertThat(e.errorCode()).isEqualTo(ErrorCode.POST_NOT_VISIBLE));
         verifyNoInteractions(postImageMapper, postTagMapper, tagMapper, userService);
+    }
+
+    @Test
+    void shouldOmitAdminFieldsFromPublicDetailJson() throws Exception {
+        UserContext.clear();
+        when(postMapper.selectById(1001L)).thenReturn(post(1001L, 1L, 1,
+                LocalDateTime.of(2026, 10, 29, 12, 0)));
+        when(postImageMapper.selectList(any())).thenReturn(List.of(
+                image(1001L, "https://cdn.example.com/1.jpg", 0)));
+        when(postTagMapper.selectList(any())).thenReturn(List.of());
+        when(userService.getBrief(1L)).thenReturn(brief(1L, "小光"));
+
+        PostDetailVO detail = postService.getDetail("1001");
+        String json = new ObjectMapper().writeValueAsString(detail);
+
+        assertThat(json).doesNotContain("auditedAt", "auditedBy", "canAudit");
+    }
+
+    @Test
+    void shouldReturnAdminPostDetailWithAuditFields() {
+        UserContext.set(new LoginUser(9L, "ADMIN"));
+        LocalDateTime auditedAt = LocalDateTime.of(2026, 11, 4, 10, 30);
+        PostDO takedown = post(1001L, 1L, 3, LocalDateTime.of(2026, 11, 3, 12, 0));
+        takedown.setAuditReason("违反社区规范");
+        takedown.setAuditedAt(auditedAt);
+        takedown.setAuditedBy(9L);
+        when(postMapper.selectById(1001L)).thenReturn(takedown);
+        when(postImageMapper.selectList(any())).thenReturn(List.of(
+                image(1001L, "https://cdn.example.com/1.jpg", 0)));
+        when(postTagMapper.selectList(any())).thenReturn(List.of());
+        when(userService.getBrief(1L)).thenReturn(brief(1L, "小光"));
+
+        PostDetailVO detail = postService.getAdminDetail("1001");
+
+        assertThat(detail.status()).isEqualTo(3);
+        assertThat(detail.statusText()).isEqualTo("已下架");
+        assertThat(detail.auditReason()).isEqualTo("违反社区规范");
+        assertThat(detail.auditedAt()).isEqualTo(auditedAt.atZone(ZoneId.of("Asia/Shanghai"))
+                .toInstant().toEpochMilli());
+        assertThat(detail.auditedBy()).isEqualTo("9");
+        assertThat(detail.canAudit()).isTrue();
+        assertThat(detail.liked()).isFalse();
+        assertThat(detail.collected()).isFalse();
+        assertThat(detail.isFollowingAuthor()).isFalse();
+        assertThat(detail.canEdit()).isFalse();
+        assertThat(detail.canResubmit()).isFalse();
+        assertThat(detail.canDelete()).isFalse();
+        verifyNoInteractions(interactionStatusProvider);
+        verify(userService, never()).isFollowing(any(), any());
+    }
+
+    @Test
+    void shouldDisableAuditForAdminOwnPost() {
+        UserContext.set(new LoginUser(9L, "ADMIN"));
+        when(postMapper.selectById(1001L)).thenReturn(post(1001L, 9L, 1,
+                LocalDateTime.of(2026, 11, 3, 12, 0)));
+        when(postImageMapper.selectList(any())).thenReturn(List.of(
+                image(1001L, "https://cdn.example.com/1.jpg", 0)));
+        when(postTagMapper.selectList(any())).thenReturn(List.of());
+        when(userService.getBrief(9L)).thenReturn(brief(9L, "管理员"));
+
+        PostDetailVO detail = postService.getAdminDetail("1001");
+
+        assertThat(detail.canAudit()).isFalse();
+    }
+
+    @Test
+    void shouldReturnNotFoundForMissingOrDeletedAdminPost() {
+        UserContext.set(new LoginUser(9L, "ADMIN"));
+        when(postMapper.selectById(1001L)).thenReturn(null);
+
+        assertThatThrownBy(() -> postService.getAdminDetail("1001"))
+                .isInstanceOfSatisfying(BizException.class,
+                        e -> assertThat(e.errorCode()).isEqualTo(ErrorCode.NOT_FOUND));
+        assertThatThrownBy(() -> postService.getAdminDetail("abc"))
+                .isInstanceOfSatisfying(BizException.class,
+                        e -> assertThat(e.errorCode()).isEqualTo(ErrorCode.NOT_FOUND));
+
+        PostDO deleted = post(1002L, 1L, 1, LocalDateTime.of(2026, 11, 3, 12, 0));
+        deleted.setIsDeleted(1);
+        when(postMapper.selectById(1002L)).thenReturn(deleted);
+        assertThatThrownBy(() -> postService.getAdminDetail("1002"))
+                .isInstanceOfSatisfying(BizException.class,
+                        e -> assertThat(e.errorCode()).isEqualTo(ErrorCode.NOT_FOUND));
     }
 
     @Test
@@ -462,6 +556,81 @@ class PostServiceImplTest {
         assertThatThrownBy(() -> postService.listMyPosts(9, null, 20))
                 .isInstanceOfSatisfying(BizException.class,
                         e -> assertThat(e.errorCode()).isEqualTo(ErrorCode.INVALID_PARAM));
+        verifyNoInteractions(postMapper);
+    }
+
+    @Test
+    void shouldListAdminPostsWithImageCountAndAuditInfo() {
+        LocalDateTime now = LocalDateTime.of(2026, 10, 29, 12, 0);
+        PostDO pending = post(1001L, 1L, 0, now);
+        PostDO rejected = post(1002L, 2L, 2, now.minusMinutes(1));
+        rejected.setAuditReason("内容不符合社区规范");
+        rejected.setAuditedAt(now);
+        rejected.setAuditedBy(9L);
+
+        Page<PostDO> rows = new Page<>(1, 20);
+        rows.setTotal(2);
+        rows.add(pending);
+        rows.add(rejected);
+
+        when(postMapper.selectList(any())).thenReturn(rows);
+        when(postImageMapper.selectList(any())).thenReturn(List.of(
+                image(1001L, "https://cdn.example.com/1.jpg", 0),
+                image(1001L, "https://cdn.example.com/2.jpg", 1),
+                image(1002L, "https://cdn.example.com/3.jpg", 0)));
+        when(postTagMapper.selectList(any())).thenReturn(List.of());
+        when(userService.getBriefs(any())).thenReturn(Map.of(
+                1L, brief(1L, "小光"),
+                2L, brief(2L, "阿野")));
+
+        PageResult<AdminPostSummaryVO> result = postService.listAdminPosts(
+                null, null, null, 1, 20);
+
+        assertThat(result.items()).extracting(AdminPostSummaryVO::id)
+                .containsExactly("1001", "1002");
+        assertThat(result.page()).isEqualTo(1);
+        assertThat(result.size()).isEqualTo(20);
+        assertThat(result.total()).isEqualTo(2);
+        assertThat(result.totalPages()).isEqualTo(1);
+
+        AdminPostSummaryVO first = result.items().get(0);
+        assertThat(first.status()).isZero();
+        assertThat(first.imageCount()).isEqualTo(2);
+        assertThat(first.coverUrl()).isEqualTo("https://cdn.example.com/1.jpg");
+        assertThat(first.liked()).isFalse();
+        assertThat(first.collected()).isFalse();
+        assertThat(first.auditedAt()).isNull();
+        assertThat(first.auditedBy()).isNull();
+
+        AdminPostSummaryVO second = result.items().get(1);
+        assertThat(second.status()).isEqualTo(2);
+        assertThat(second.statusText()).isEqualTo("审核拒绝");
+        assertThat(second.auditReason()).isEqualTo("内容不符合社区规范");
+        assertThat(second.imageCount()).isEqualTo(1);
+        assertThat(second.auditedAt()).isEqualTo(now.atZone(ZoneId.of("Asia/Shanghai"))
+                .toInstant().toEpochMilli());
+        assertThat(second.auditedBy()).isEqualTo("9");
+        verifyNoInteractions(interactionStatusProvider);
+    }
+
+    @Test
+    void shouldRejectInvalidAdminStatus() {
+        assertThatThrownBy(() -> postService.listAdminPosts("9", null, null, 1, 20))
+                .isInstanceOfSatisfying(BizException.class,
+                        e -> assertThat(e.errorCode()).isEqualTo(ErrorCode.INVALID_PARAM));
+        verifyNoInteractions(postMapper);
+    }
+
+    @Test
+    void shouldReturnEmptyPageForInvalidAdminAuthorAndClampSize() {
+        PageResult<AdminPostSummaryVO> result = postService.listAdminPosts(
+                "0", "abc", null, 2, 500);
+
+        assertThat(result.items()).isEmpty();
+        assertThat(result.page()).isEqualTo(2);
+        assertThat(result.size()).isEqualTo(100);
+        assertThat(result.total()).isZero();
+        assertThat(result.totalPages()).isZero();
         verifyNoInteractions(postMapper);
     }
 

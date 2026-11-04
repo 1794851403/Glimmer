@@ -10,7 +10,7 @@ import java.util.List;
 /**
  * 帖子详情出参。
  *
- * <p>公开访问时不返回审核原因与 AI 打标状态，因此对空字段使用 NON_NULL 省略。
+ * <p>公开访问时不返回审核原因、AI 打标状态与管理端裁决字段，因此对空字段使用 NON_NULL 省略。
  */
 @Builder
 @JsonInclude(JsonInclude.Include.NON_NULL)
@@ -85,6 +85,15 @@ public record PostDetailVO(
         boolean canDelete,
 
         /** AI 打标状态；仅作者本人或管理员可见。 */
-        Integer aiTagStatus
+        Integer aiTagStatus,
+
+        /** 最近裁决时间，epoch 毫秒；仅管理端详情返回。 */
+        Long auditedAt,
+
+        /** 最近裁决管理员 ID；仅管理端详情返回。 */
+        String auditedBy,
+
+        /** 当前管理员是否可以审核 / 下架 / 恢复；仅管理端详情返回。 */
+        Boolean canAudit
 ) {
 }

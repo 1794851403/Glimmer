@@ -1,7 +1,9 @@
 package com.glimmer.content.service;
 
 import com.glimmer.common.api.CursorPage;
+import com.glimmer.common.api.PageResult;
 import com.glimmer.content.dto.CreatePostDTO;
+import com.glimmer.content.vo.AdminPostSummaryVO;
 import com.glimmer.content.vo.MyPostSummaryVO;
 import com.glimmer.content.vo.PostAuditVO;
 import com.glimmer.content.vo.PostCreateVO;
@@ -159,6 +161,35 @@ public interface PostService {
      * @return 我的帖子摘要游标页
      */
     CursorPage<MyPostSummaryVO> listMyPosts(Integer status, String cursor, Integer size);
+
+    /**
+     * 管理端查询帖子列表，按页码分页。
+     *
+     * <p>{@code status} 取 {@code 0|1|2|3|ALL}，不传按 0（待审队列）处理；
+     * 待审队列按创建时间升序，其他状态 / {@code ALL} 按创建时间倒序。
+     * 非法状态返回 40001；非法作者 ID 按查无结果返回空页。
+     * 管理端列表不查询当前管理员的点赞 / 收藏状态。
+     *
+     * @param status   帖子状态或 ALL，可为空
+     * @param authorId 作者用户 ID，可为空
+     * @param keyword  标题模糊关键词，可为空
+     * @param page     页码，从 1 开始
+     * @param size     每页数量，默认 20，越界夹到 1~100
+     * @return 管理端帖子摘要页码分页
+     */
+    PageResult<AdminPostSummaryVO> listAdminPosts(String status, String authorId, String keyword,
+                                                  Integer page, Integer size);
+
+    /**
+     * 管理端查看帖子详情。
+     *
+     * <p>任意未删除帖子均可查看，不受状态限制；不存在、ID 非法或已删除统一返回 40401。
+     * 额外返回最近裁决信息与 {@code canAudit}；不查询关注与点赞 / 收藏状态。
+     *
+     * @param postId 帖子 ID，允许数字字符串
+     * @return 管理端帖子详情
+     */
+    PostDetailVO getAdminDetail(String postId);
 
     /**
      * 编辑帖子（仅作者本人）。

@@ -1,13 +1,18 @@
 package com.glimmer.content.controller;
 
+import com.glimmer.common.api.PageResult;
 import com.glimmer.common.api.Result;
 import com.glimmer.content.dto.AuditReasonDTO;
 import com.glimmer.content.service.PostService;
+import com.glimmer.content.vo.AdminPostSummaryVO;
 import com.glimmer.content.vo.PostAuditVO;
+import com.glimmer.content.vo.PostDetailVO;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
@@ -21,6 +26,31 @@ public class AdminPostController {
 
     public AdminPostController(PostService postService) {
         this.postService = postService;
+    }
+
+    /**
+     * 管理端帖子列表（需管理员）。
+     *
+     * <p>{@code status} 取 0|1|2|3|ALL，不传按 0（待审队列）；非法状态返回 40001。
+     */
+    @GetMapping
+    public Result<PageResult<AdminPostSummaryVO>> list(
+            @RequestParam(required = false) String status,
+            @RequestParam(required = false) String authorId,
+            @RequestParam(required = false) String keyword,
+            @RequestParam(required = false) Integer page,
+            @RequestParam(required = false) Integer size) {
+        return Result.ok(postService.listAdminPosts(status, authorId, keyword, page, size));
+    }
+
+    /**
+     * 管理端帖子详情（需管理员）。
+     *
+     * <p>任意未删除帖子均可查看，不受状态限制；不存在 / ID 非法 / 已删除返回 40401。
+     */
+    @GetMapping("/{postId}")
+    public Result<PostDetailVO> detail(@PathVariable String postId) {
+        return Result.ok(postService.getAdminDetail(postId));
     }
 
     /**

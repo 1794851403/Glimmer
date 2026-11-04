@@ -306,6 +306,22 @@ curl -s -X POST http://localhost:8080/api/v1/posts/<postId>/resubmit \
 - 删除为终态软删除，重复删除直接返回 204；非作者操作返回 `40301`；
 - 仅 `status=2` 可重提，其他状态返回 `40901`。
 
+## 验证管理端列表 / 详情
+
+```bash
+# 待审队列（默认 status=0）；status 可取 0/1/2/3/ALL，page 从 1 开始，size 夹到 1~100
+curl -s 'http://localhost:8080/api/v1/admin/posts?status=0&page=1&size=20' \
+  -H "Authorization: Bearer <adminToken>"
+
+# 管理端详情：任意未删除帖子均可查看；不存在 / ID 非法 / 已删除返回 40401
+curl -s http://localhost:8080/api/v1/admin/posts/<postId> \
+  -H "Authorization: Bearer <adminToken>"
+```
+
+- 列表非法 `status` 返回 `40001`，非法 `authorId` 返回空页；待审队列按创建时间升序，其他状态 / `ALL` 倒序；
+- 列表 / 详情不查询关注与点赞 / 收藏状态，`liked` / `collected` / `isFollowingAuthor` 固定为 `false`；
+- 详情额外返回 `auditedAt` / `auditedBy` / `canAudit`；普通详情 `GET /posts/{postId}` 不返回这三个字段。
+
 ## 验证管理端审核
 
 ```bash
@@ -332,14 +348,14 @@ curl -s -X POST http://localhost:8080/api/v1/admin/posts/<postId>/restore \
 mvn test
 ```
 
-当前 140 个单元测试：JWT、`UserServiceImpl`、`FileServiceImpl`、`PostServiceImpl`、`TagServiceImpl`、`FeedServiceImpl`、`LikeServiceImpl`、`CollectServiceImpl`、`CommentServiceImpl`、`InteractionStatusProviderImpl`；
+当前 147 个单元测试：JWT、`UserServiceImpl`、`FileServiceImpl`、`PostServiceImpl`、`TagServiceImpl`、`FeedServiceImpl`、`LikeServiceImpl`、`CollectServiceImpl`、`CommentServiceImpl`、`InteractionStatusProviderImpl`；
 涉及 MyBatis-Plus 更新条件的用例在 `@BeforeAll` 注册实体的 `TableInfo`；接 Testcontainers 后补
 MySQL / Redis / RabbitMQ / OSS 集成测试与 ArchUnit 模块边界测试。
 
 ## 待办
 
 - 评论情感分析 MQ（`sentiment` 落库）与评论热榜；
-- 管理端帖子列表 / 详情 / 评论情感分布；
+- 管理端评论情感分布（随 AI 情感分析后置）；
 - Feed 写扩散、Redis 收件箱、热榜与推荐流；
 - OSS 直传（预签名 URL）、magic bytes 校验、图片内容审核（演进）；
 - DeepSeek / ES 的配置与实现（按 M1/M2）；

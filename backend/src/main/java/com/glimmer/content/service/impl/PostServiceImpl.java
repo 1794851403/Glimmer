@@ -2,8 +2,11 @@ package com.glimmer.content.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
+import com.github.pagehelper.PageHelper;
+import com.github.pagehelper.PageInfo;
 import com.glimmer.common.api.CursorCodec;
 import com.glimmer.common.api.CursorPage;
+import com.glimmer.common.api.PageResult;
 import com.glimmer.common.exception.BizException;
 import com.glimmer.common.exception.ErrorCode;
 import com.glimmer.common.web.LoginUser;
@@ -19,6 +22,7 @@ import com.glimmer.content.mapper.PostTagMapper;
 import com.glimmer.content.mapper.TagMapper;
 import com.glimmer.content.service.InteractionStatusProvider;
 import com.glimmer.content.service.PostService;
+import com.glimmer.content.vo.AdminPostSummaryVO;
 import com.glimmer.content.vo.ImageItemVO;
 import com.glimmer.content.vo.MyPostSummaryVO;
 import com.glimmer.content.vo.PostAuditVO;
@@ -63,6 +67,7 @@ public class PostServiceImpl implements PostService {
 
     private static final int DEFAULT_PAGE_SIZE = 20;
     private static final int MAX_PAGE_SIZE = 50;
+    private static final int ADMIN_MAX_PAGE_SIZE = 100;
     private static final ZoneId ZONE = ZoneId.of("Asia/Shanghai");
 
     private final PostMapper postMapper;
@@ -152,7 +157,43 @@ public class PostServiceImpl implements PostService {
             throw notVisible();
         }
 
-        // 3. 查询图片，按排序号升序
+        return assembleDetail(post, viewer, false);
+    }
+
+    /**
+     * 管理端查看帖子详情。
+     *
+     * <p>只校验帖子存在且未删除，不限状态；不存在 / ID 非法 / 已删除统一返回 40401。
+     * 不查询关注关系与当前管理员的点赞 / 收藏状态。
+     *
+     * @param rawPostId 帖子 ID，允许数字字符串
+     * @return 管理端帖子详情
+     */
+    @Override
+    public PostDetailVO getAdminDetail(String rawPostId) {
+        PostDO post = requireAuditablePost(rawPostId);
+        return assembleDetail(post, UserContext.require(), true);
+    }
+
+    /**
+     * 组装详情。调用方已完成可见性 / 存在性校验，这里只负责查询与拼装。
+     *
+     * <p>{@code adminView=true} 时补充最近裁决信息与 {@code canAudit}，
+     * 跳过关注和互动状态查询，用户操作标记统一为 false。
+     *
+     * @param post      帖子行
+     * @param viewer    当前登录用户，游客为 null
+     * @param adminView 是否管理端视图
+     * @return 帖子详情
+     */
+    private PostDetailVO assembleDetail(PostDO post, LoginUser viewer, boolean adminView) {
+        Long postId = post.getId();
+        boolean isAuthor = viewer != null && Objects.equals(viewer.userId(), post.getUserId());
+        boolean isAdmin = viewer != null && viewer.isAdmin();
+        boolean canSeeAuditInfo = adminView || isAuthor || isAdmin;
+        int status = statusOf(post);
+
+        // 查询图片，按排序号升序
         List<ImageItemVO> images = safeList(postImageMapper.selectList(
                         new LambdaQueryWrapper<PostImageDO>()
                                 .eq(PostImageDO::getPostId, postId)
@@ -162,7 +203,7 @@ public class PostServiceImpl implements PostService {
                 .map(ImageItemVO::from)
                 .toList();
 
-        // 4. 查询标签关联，再用标签字典补名称
+        // 查询标签关联，再用标签字典补名称
         List<PostTagDO> postTags = safeList(postTagMapper.selectList(
                 new LambdaQueryWrapper<PostTagDO>()
                         .eq(PostTagDO::getPostId, postId)
@@ -182,23 +223,22 @@ public class PostServiceImpl implements PostService {
                 .filter(Objects::nonNull)
                 .toList();
 
-        // 5. 作者信息；账号不会物理删除，缺失时用占位信息兜底
+        // 作者信息；账号不会物理删除，缺失时用占位信息兜底
         UserBriefVO author = userService.getBrief(post.getUserId());
         if (author == null) {
             author = UserBriefVO.placeholder(post.getUserId());
         }
 
-        // 6. 登录用户看别人的帖子时，补充关注状态
-        boolean isFollowingAuthor = viewer != null
+        // 用户端才需要关注状态；管理端不查关系表
+        boolean isFollowingAuthor = !adminView
+                && viewer != null
                 && !isAuthor
                 && userService.isFollowing(viewer.userId(), post.getUserId());
 
-        // 7. 登录用户补充互动状态；游客不查关系表
-        InteractionStatus interactionStatus = loadInteractionStatus(
-                viewer == null ? null : viewer.userId(), List.of(postId));
-
-        // 8. 组装详情
-        boolean canSeeAuditInfo = isAuthor || isAdmin;
+        // 用户端才需要点赞 / 收藏状态；管理端统一为 false
+        InteractionStatus interactionStatus = adminView
+                ? InteractionStatus.empty()
+                : loadInteractionStatus(viewer == null ? null : viewer.userId(), List.of(postId));
 
         return PostDetailVO.builder()
                 .id(String.valueOf(post.getId()))
@@ -221,10 +261,15 @@ public class PostServiceImpl implements PostService {
                 .liked(interactionStatus.liked().contains(postId))
                 .collected(interactionStatus.collected().contains(postId))
                 .isFollowingAuthor(isFollowingAuthor)
-                .canEdit(isAuthor && status <= 2)
-                .canResubmit(isAuthor && status == 2)
-                .canDelete(isAuthor)
+                .canEdit(!adminView && isAuthor && status <= 2)
+                .canResubmit(!adminView && isAuthor && status == 2)
+                .canDelete(!adminView && isAuthor)
                 .aiTagStatus(canSeeAuditInfo ? post.getAiTagStatus() : null)
+                .auditedAt(adminView ? epochMillisOrNull(post.getAuditedAt()) : null)
+                .auditedBy(adminView && post.getAuditedBy() != null
+                        ? String.valueOf(post.getAuditedBy()) : null)
+                .canAudit(adminView && viewer != null
+                        ? !Objects.equals(viewer.userId(), post.getUserId()) : null)
                 .build();
     }
 
@@ -485,6 +530,126 @@ public class PostServiceImpl implements PostService {
             nextCursor = CursorCodec.encode(last.getCreatedAt(), last.getId());
         }
         return new CursorPage<>(items, nextCursor, hasMore);
+    }
+
+    /**
+     * 管理端帖子列表。
+     *
+     * <p>参数归一化：{@code status} 不传按 0，{@code ALL} 表示不过滤，非法状态 40001；
+     * 非法作者 ID 按查无结果返回空页；页码至少为 1，每页 1~100 条。
+     * 待审队列按创建时间升序，其他状态 / ALL 按创建时间倒序。
+     *
+     * @param rawStatus   状态或 ALL，可为空
+     * @param rawAuthorId 作者用户 ID，可为空
+     * @param rawKeyword  标题关键词，可为空
+     * @param rawPage     页码
+     * @param rawSize     每页数量
+     * @return 管理端帖子摘要页码分页
+     */
+    @Override
+    public PageResult<AdminPostSummaryVO> listAdminPosts(String rawStatus, String rawAuthorId,
+                                                         String rawKeyword, Integer rawPage,
+                                                         Integer rawSize) {
+        int page = rawPage == null || rawPage < 1 ? 1 : rawPage;
+        int size = rawSize == null
+                ? DEFAULT_PAGE_SIZE
+                : Math.max(1, Math.min(rawSize, ADMIN_MAX_PAGE_SIZE));
+
+        Integer status;
+        if (!StringUtils.hasText(rawStatus)) {
+            status = 0;
+        } else if ("ALL".equalsIgnoreCase(rawStatus.strip())) {
+            status = null;
+        } else {
+            try {
+                status = Integer.parseInt(rawStatus.strip());
+            } catch (NumberFormatException e) {
+                throw new BizException(ErrorCode.INVALID_PARAM, "状态取值应为 0~3 或 ALL");
+            }
+            if (status < 0 || status > 3) {
+                throw new BizException(ErrorCode.INVALID_PARAM, "状态取值应为 0~3 或 ALL");
+            }
+        }
+
+        Long authorId = null;
+        if (StringUtils.hasText(rawAuthorId)) {
+            try {
+                authorId = Long.parseLong(rawAuthorId.strip());
+            } catch (NumberFormatException e) {
+                return new PageResult<>(List.of(), page, size, 0, 0);
+            }
+            if (authorId <= 0) {
+                return new PageResult<>(List.of(), page, size, 0, 0);
+            }
+        }
+
+        String keyword = StringUtils.hasText(rawKeyword) ? rawKeyword.strip() : null;
+
+        LambdaQueryWrapper<PostDO> query = new LambdaQueryWrapper<PostDO>()
+                .eq(PostDO::getIsDeleted, 0);
+        if (status != null) {
+            query.eq(PostDO::getStatus, status);
+        }
+        if (authorId != null) {
+            query.eq(PostDO::getUserId, authorId);
+        }
+        if (keyword != null) {
+            query.like(PostDO::getTitle, keyword);
+        }
+        if (status != null && status == 0) {
+            query.orderByAsc(PostDO::getCreatedAt).orderByAsc(PostDO::getId);
+        } else {
+            query.orderByDesc(PostDO::getCreatedAt).orderByDesc(PostDO::getId);
+        }
+
+        PageHelper.startPage(page, size);
+        List<PostDO> rows = postMapper.selectList(query);
+        if (rows == null) {
+            return new PageResult<>(List.of(), page, size, 0, 0);
+        }
+        PageInfo<PostDO> pageInfo = new PageInfo<>(rows);
+        if (rows.isEmpty()) {
+            return new PageResult<>(List.of(), pageInfo.getPageNum(), pageInfo.getPageSize(),
+                    pageInfo.getTotal(), pageInfo.getPages());
+        }
+
+        List<Long> postIds = rows.stream().map(PostDO::getId).filter(Objects::nonNull).toList();
+        Map<Long, List<ImageItemVO>> imagesByPost = loadImages(postIds);
+        Map<Long, List<TagVO>> tagsByPost = loadTags(postIds);
+        Map<Long, UserBriefVO> authors = loadAuthors(rows);
+
+        List<AdminPostSummaryVO> items = new ArrayList<>(rows.size());
+        for (PostDO post : rows) {
+            List<ImageItemVO> images = imagesByPost.getOrDefault(post.getId(), List.of());
+            int postStatus = statusOf(post);
+            items.add(AdminPostSummaryVO.builder()
+                    .id(String.valueOf(post.getId()))
+                    .title(post.getTitle())
+                    .coverUrl(images.isEmpty() ? "" : images.get(0).url())
+                    .author(authors.getOrDefault(post.getUserId(),
+                            UserBriefVO.placeholder(post.getUserId())))
+                    .tags(tagsByPost.getOrDefault(post.getId(), List.of()))
+                    .likeCount(value(post.getLikeCount()))
+                    .commentCount(value(post.getCommentCount()))
+                    .collectCount(value(post.getCollectCount()))
+                    .viewCount(value(post.getViewCount()))
+                    .publishedAt(epochMillis(post.getPublishedAt()))
+                    .status(postStatus)
+                    .statusText(statusText(postStatus))
+                    .auditReason(postStatus == 2 || postStatus == 3 ? post.getAuditReason() : null)
+                    .createdAt(epochMillis(post.getCreatedAt()))
+                    .updatedAt(epochMillis(post.getUpdatedAt()))
+                    .liked(false)
+                    .collected(false)
+                    .imageCount(images.size())
+                    .auditedAt(epochMillisOrNull(post.getAuditedAt()))
+                    .auditedBy(post.getAuditedBy() == null
+                            ? null : String.valueOf(post.getAuditedBy()))
+                    .build());
+        }
+
+        return new PageResult<>(items, pageInfo.getPageNum(), pageInfo.getPageSize(),
+                pageInfo.getTotal(), pageInfo.getPages());
     }
 
     /**
@@ -1081,6 +1246,10 @@ public class PostServiceImpl implements PostService {
 
     private long epochMillis(LocalDateTime time) {
         return time == null ? 0L : time.atZone(ZONE).toInstant().toEpochMilli();
+    }
+
+    private Long epochMillisOrNull(LocalDateTime time) {
+        return time == null ? null : epochMillis(time);
     }
 
     private <T> List<T> safeList(List<T> list) {
