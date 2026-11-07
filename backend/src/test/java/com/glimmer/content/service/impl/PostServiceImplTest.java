@@ -16,6 +16,7 @@ import com.glimmer.content.entity.PostDO;
 import com.glimmer.content.entity.PostImageDO;
 import com.glimmer.content.entity.PostTagDO;
 import com.glimmer.content.entity.TagDO;
+import com.glimmer.content.event.PostPublishedEvent;
 import com.glimmer.content.mapper.PostImageMapper;
 import com.glimmer.content.mapper.PostMapper;
 import com.glimmer.content.mapper.PostTagMapper;
@@ -37,6 +38,7 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
+import org.springframework.context.ApplicationEventPublisher;
 
 import java.time.LocalDateTime;
 import java.time.ZoneId;
@@ -64,6 +66,7 @@ class PostServiceImplTest {
     private TagMapper tagMapper;
     private UserService userService;
     private InteractionStatusProvider interactionStatusProvider;
+    private ApplicationEventPublisher eventPublisher;
     private PostServiceImpl postService;
 
     @BeforeAll
@@ -81,8 +84,9 @@ class PostServiceImplTest {
         tagMapper = mock(TagMapper.class);
         userService = mock(UserService.class);
         interactionStatusProvider = mock(InteractionStatusProvider.class);
+        eventPublisher = mock(ApplicationEventPublisher.class);
         postService = new PostServiceImpl(postMapper, postImageMapper, postTagMapper, tagMapper, userService,
-                interactionStatusProvider);
+                interactionStatusProvider, eventPublisher);
         UserContext.set(new LoginUser(1L, "USER"));
         when(postMapper.insert(any(PostDO.class))).thenAnswer(invocation -> {
             PostDO post = invocation.getArgument(0);
@@ -142,6 +146,15 @@ class PostServiceImplTest {
         assertThat(tagCaptor.getAllValues())
                 .extracting(PostTagDO::getSource)
                 .containsOnly(0);
+
+        ArgumentCaptor<PostPublishedEvent> eventCaptor =
+                ArgumentCaptor.forClass(PostPublishedEvent.class);
+        verify(eventPublisher).publishEvent(eventCaptor.capture());
+        PostPublishedEvent event = eventCaptor.getValue();
+        assertThat(event.postId()).isEqualTo(1001L);
+        assertThat(event.authorId()).isEqualTo(1L);
+        assertThat(event.status()).isZero();
+        assertThat(event.publishedAtMillis()).isPositive();
     }
 
     @Test
@@ -156,6 +169,12 @@ class PostServiceImplTest {
         assertThat(response.message()).isEqualTo("发布成功");
         assertThat(response.id()).isEqualTo("1001");
         verifyNoInteractions(tagMapper);
+
+        ArgumentCaptor<PostPublishedEvent> eventCaptor =
+                ArgumentCaptor.forClass(PostPublishedEvent.class);
+        verify(eventPublisher).publishEvent(eventCaptor.capture());
+        assertThat(eventCaptor.getValue().status()).isEqualTo(1);
+        assertThat(eventCaptor.getValue().authorId()).isEqualTo(2L);
     }
 
     @Test

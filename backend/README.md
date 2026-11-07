@@ -28,8 +28,13 @@ src/main/java/com/glimmer/
 │                       # TagServiceImpl：标签关键字查询 + limit 夹取
 ├── feed/
 │   ├── controller/     # GET /feed/follow 关注流
-│   └── service/        # FeedService 接口
-│       └── impl/       # FeedServiceImpl：读关注关系后委托 PostService 查公开帖子
+│   ├── config/         # FeedProperties；RabbitMQ exchange / queue / DLX / DLQ
+│   ├── mq/             # 发帖事件发布、消息体、手动 ack 消费者
+│   └── service/        # FeedService、FeedInboxService、FeedFanoutService 接口
+│       └── impl/       # FeedServiceImpl：收件箱优先 + MySQL 兜底
+│                       # FeedInboxServiceImpl：ZSet 收件箱 / 首页重建
+│                       # FeedFanoutServiceImpl：粉丝分批 + 活跃过滤 + 批量写
+│                       # FeedFollowListener：关注后回填最近 50 条
 ├── interaction/
 │   ├── controller/     # posts/{postId}/like|collect；users/me/likes|collections；
 │   │                   # posts/{postId}/comments；comments/{commentId}/replies；comments/{commentId}
@@ -68,6 +73,10 @@ src/main/java/com/glimmer/
 
 - **双 Redis**：`core`（noeviction + AOF，Token / 锁 / 秒杀 / 布隆）与 `cache`（allkeys-lru，详情 / Feed / 限流）。
   Spring Boot 默认 `RedisAutoConfiguration` 已排除，连接在 `RedisConfig` 显式创建。
+- **Feed 收件箱**（cache 实例）：`glimmer:feed:inbox:{userId}`（ZSet，postId → publishedAt 毫秒，最多 200 条、TTL 30 天）、
+  `glimmer:feed:last-read:{userId}`（首页重建判定，24 小时）、`glimmer:user:active`（活跃粉丝过滤，丢失时 fail-open）。
+- **Feed MQ**：`glimmer.feed.exchange`（topic）→ `glimmer.feed.fanout.queue`；失败经 `glimmer.feed.dlx` 进入
+  `glimmer.feed.fanout.dlq`。消费者手动 ack，不重回原队列。发帖只投递消息，不等待写扩散完成。
 - **鉴权**：默认拒绝 `/api/**`；白名单按「方法 + 路径」精确匹配；JWT 之外还要校验 core 中的
   `glimmer:user:token:{userId}`，支持登出 / 封禁主动失效。
 - **数据库**：Flyway `V1__init_schema.sql`（11 张表）、`V2__seed_tags.sql`。
@@ -153,7 +162,8 @@ curl -s -X POST http://localhost:8080/api/v1/posts \
 - 普通用户 `status=0`（已发布待审核），管理员 `status=1`（已发布）；
 - 校验只保留最小必要项：标题 1~100 字符、正文 1~20,000 字符、图片 1~9 张且每张 ≤512 字符、
   标签 0~5 个且必须存在；不校验图片 URL 协议与归属；
-- 当前只落 MySQL（帖子 / 图片 / 标签同一事务）；Feed 写扩散、ES 索引与 AI 打标随后续模块接入。
+- 帖子 / 图片 / 标签在同一 MySQL 事务内提交；提交后经事件 + RabbitMQ 异步触发 Feed 写扩散；
+  ES 索引与 AI 打标随后续模块接入。
 
 ## 验证标签与帖子详情
 
@@ -263,8 +273,11 @@ curl -s 'http://localhost:8080/api/v1/feed/follow?size=20' \
   -H "Authorization: Bearer <accessToken>"
 ```
 
-- 当前为读时拉取：查 `t_user_follow` 得到关注作者，再按作者集合查公开帖子；未关注任何人时返回空页；
-- 坏游标按首页处理，`size` 默认 20、越界夹到 1~50；暂不接 Redis 收件箱与热榜兜底。
+- 第一轮为「收件箱优先 + MySQL 兜底」：发帖提交后经 RabbitMQ 异步写粉丝收件箱；关注后回填最近 50 条；
+- 读取时先查 `glimmer:feed:inbox:{userId}`，收件箱凑不满一页或 Redis 不可用时回源 `t_post`；取关不清理收件箱，读取时按当前关注集合过滤；
+- 收件箱最多 200 条、TTL 30 天；首页超过 24 小时或收件箱为空时先按关注列表重建；
+- 未关注任何人时返回空页；坏游标按首页处理，`size` 默认 20、越界夹到 1~50；
+- 写扩散 best-effort，漏推不影响发帖 / 关注结果；大 V 拉模式与热榜 / 推荐流兜底在第二轮接入。
 
 ## 验证关注 / 取关与粉丝列表
 
@@ -353,7 +366,7 @@ curl -s -X POST http://localhost:8080/api/v1/admin/posts/<postId>/restore \
 mvn test
 ```
 
-当前 147 个单元测试：JWT、`UserServiceImpl`、`FileServiceImpl`、`PostServiceImpl`、`TagServiceImpl`、`FeedServiceImpl`、`LikeServiceImpl`、`CollectServiceImpl`、`CommentServiceImpl`、`InteractionStatusProviderImpl`；
+当前 171 个单元测试：JWT、`UserServiceImpl`、`FileServiceImpl`、`PostServiceImpl`、`TagServiceImpl`、`FeedServiceImpl`、`FeedFanoutServiceImpl`、`FeedFollowListener`、`FeedPostEventPublisher`、`FeedFanoutListener`、`LikeServiceImpl`、`CollectServiceImpl`、`CommentServiceImpl`、`InteractionStatusProviderImpl`；
 涉及 MyBatis-Plus 更新条件的用例在 `@BeforeAll` 注册实体的 `TableInfo`；接 Testcontainers 后补
 MySQL / Redis / RabbitMQ / OSS 集成测试与 ArchUnit 模块边界测试。
 
@@ -361,7 +374,7 @@ MySQL / Redis / RabbitMQ / OSS 集成测试与 ArchUnit 模块边界测试。
 
 - 评论情感分析 MQ（`sentiment` 落库）与评论热榜；
 - 管理端评论情感分布（随 AI 情感分析后置）；
-- Feed 写扩散、Redis 收件箱、热榜与推荐流；
+- Feed 第二轮：1000 粉丝阈值、大 V 拉模式与 K 路归并、`feed:outbox` 缓存、热榜与推荐流；
 - OSS 直传（预签名 URL）、magic bytes 校验、图片内容审核（演进）；
 - DeepSeek / ES 的配置与实现（按 M1/M2）；
 - ArchUnit、Testcontainers、CI。

@@ -164,6 +164,33 @@ Test-NetConnection 192.168.157.129 -Port 5672
 Test-NetConnection 192.168.157.129 -Port 9200
 ```
 
+## 7.1 RabbitMQ / Feed 队列检查
+
+Feed 第一轮使用以下拓扑，后端启动后由 `RabbitAdmin` 自动声明：
+
+| 名称 | 类型 | 说明 |
+|---|---|---|
+| `glimmer.feed.exchange` | topic exchange | 发帖事件入口，routing key `feed.post.published` |
+| `glimmer.feed.fanout.queue` | durable queue | 写扩散消费者，期望 2 个消费者 |
+| `glimmer.feed.dlx` | direct exchange | 死信交换机，routing key `feed.fanout.dead` |
+| `glimmer.feed.fanout.dlq` | durable queue | 消费失败 / 消息转换失败的死信 |
+
+在 VM 上检查：
+
+```bash
+cd deploy
+docker compose exec rabbitmq rabbitmqctl list_queues name messages consumers
+docker compose exec rabbitmq rabbitmqctl list_exchanges name type
+```
+
+或打开管理台 `http://192.168.157.129:15672` 查看队列深度与消费者。`fanout.queue` 的 `messages`
+持续增长且 `consumers=0` 时，先确认后端是否启动、RabbitMQ 连接是否报错；`dlq` 有消息时先看后端
+`feed fanout failed` 日志，修复后确认无需保留现场再清空：
+
+```bash
+docker compose exec rabbitmq rabbitmqctl purge_queue glimmer.feed.fanout.dlq
+```
+
 ## 8. 后端开发配置
 
 后端**不复制一份密码配置**：`backend/src/main/resources/application.yml` 通过
@@ -244,5 +271,7 @@ docker compose exec -T redis-core redis-cli BGREWRITEAOF
 | SSH 能通，但 3306/6379/6380 从宿主机超时 | 先查 `sysctl net.ipv4.ip_forward`，为 0 时设为 1 并持久化到 `/etc/sysctl.d/`；若仍不通，继续查下一行 |
 | VM 挂起后恢复，SSH 能通但所有 Docker 端口超时；`ip route get 172.28.0.x` 走 `ens33` 而不是 `br-*` | Docker 网桥在挂起 / 恢复后丢失 IPv4 地址。执行 `sudo systemctl restart docker`，确认 `ip -4 addr show br-*` 有 `172.28.0.1/16`、`ip route` 有 `172.28.0.0/16 dev br-*`；仍异常则重建 `glimmer-net` |
 | RabbitMQ 延迟插件缺失 | 构建日志看 `ADD` 是否成功；离线时手动放 `.ez` 后改 `COPY` |
+| Feed 关注流不更新，`glimmer.feed.fanout.queue` 有堆积 | 看管理台消费者数是否为 2、后端日志是否有 RabbitMQ 连接 / 反序列化错误；确认 `deploy/.env` 的 `RABBITMQ_DEFAULT_USER/PASS` 与后端读取值一致 |
+| `glimmer.feed.fanout.dlq` 持续增长 | 常见原因是消息不是合法 JSON，或消费时 Redis 不可用；看 `feed fanout failed` 日志，恢复依赖后清空 DLQ。消费端 `requeue=false`，不会毒消息死循环 |
 | IK 插件 404 | `IK_VERSION` 与 `ES_VERSION` 必须完全一致；确认 GitHub release 可用 |
 | 磁盘满 | `docker system df` / `df -h`；ES 与镜像最占空间 |

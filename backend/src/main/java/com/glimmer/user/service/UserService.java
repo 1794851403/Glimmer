@@ -95,6 +95,19 @@ public interface UserService {
     List<Long> listFollowingIds(Long followerId);
 
     /**
+     * 按 follower_id 升序批量查询某个作者的粉丝，供 Feed 写扩散使用。
+     *
+     * <p>内部方法，不对外暴露 HTTP 接口。首批 {@code afterFollowerId} 传 0，
+     * 后续传上一批返回的最后一个 ID。
+     *
+     * @param followeeId      被关注者 ID
+     * @param afterFollowerId 上一批最后一个粉丝 ID，可为空
+     * @param limit           批大小
+     * @return 粉丝 ID 列表；没有更多时返回空列表
+     */
+    List<Long> listFollowerIds(Long followeeId, Long afterFollowerId, int limit);
+
+    /**
      * 关注用户。
      *
      * <p>需登录；不能关注自己；重复关注幂等。关注成功后同步维护双方计数。

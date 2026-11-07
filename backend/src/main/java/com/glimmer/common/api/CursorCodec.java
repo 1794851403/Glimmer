@@ -32,6 +32,16 @@ public final class CursorCodec {
     }
 
     /**
+     * 用 epoch 毫秒编码游标；Feed 收件箱的 score 本身就是毫秒时间戳。
+     */
+    public static String encodeMillis(long epochMillis, Long id) {
+        if (epochMillis <= 0 || id == null || id <= 0) {
+            return null;
+        }
+        return encode(LocalDateTime.ofInstant(Instant.ofEpochMilli(epochMillis), ZONE), id);
+    }
+
+    /**
      * 解码游标；空值、格式错误或字段越界统一返回 {@code null}。
      */
     public static CursorValue decode(String raw) {
@@ -62,5 +72,12 @@ public final class CursorCodec {
      * 解码后的游标：排序时间与主键。
      */
     public record CursorValue(LocalDateTime time, Long id) {
+
+        /**
+         * 转回 epoch 毫秒，便于与 Redis ZSet 的 score 直接比较。
+         */
+        public long epochMilli() {
+            return time.atZone(ZONE).toInstant().toEpochMilli();
+        }
     }
 }

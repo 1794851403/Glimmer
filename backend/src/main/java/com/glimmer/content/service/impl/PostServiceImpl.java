@@ -16,6 +16,7 @@ import com.glimmer.content.entity.PostDO;
 import com.glimmer.content.entity.PostImageDO;
 import com.glimmer.content.entity.PostTagDO;
 import com.glimmer.content.entity.TagDO;
+import com.glimmer.content.event.PostPublishedEvent;
 import com.glimmer.content.mapper.PostImageMapper;
 import com.glimmer.content.mapper.PostMapper;
 import com.glimmer.content.mapper.PostTagMapper;
@@ -32,6 +33,7 @@ import com.glimmer.content.vo.PostSummaryVO;
 import com.glimmer.content.vo.TagVO;
 import com.glimmer.user.service.UserService;
 import com.glimmer.user.vo.UserBriefVO;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
@@ -76,19 +78,22 @@ public class PostServiceImpl implements PostService {
     private final TagMapper tagMapper;
     private final UserService userService;
     private final InteractionStatusProvider interactionStatusProvider;
+    private final ApplicationEventPublisher eventPublisher;
 
     public PostServiceImpl(PostMapper postMapper,
                            PostImageMapper postImageMapper,
                            PostTagMapper postTagMapper,
                            TagMapper tagMapper,
                            UserService userService,
-                           InteractionStatusProvider interactionStatusProvider) {
+                           InteractionStatusProvider interactionStatusProvider,
+                           ApplicationEventPublisher eventPublisher) {
         this.postMapper = postMapper;
         this.postImageMapper = postImageMapper;
         this.postTagMapper = postTagMapper;
         this.tagMapper = tagMapper;
         this.userService = userService;
         this.interactionStatusProvider = interactionStatusProvider;
+        this.eventPublisher = eventPublisher;
     }
 
     /**
@@ -126,6 +131,13 @@ public class PostServiceImpl implements PostService {
 
         insertImages(post.getId(), imageUrls);
         insertTags(post.getId(), tagIds);
+
+        // 事务提交后由 Feed 监听器消费；content 只发事件，不依赖 feed 模块。
+        eventPublisher.publishEvent(new PostPublishedEvent(
+                post.getId(),
+                post.getUserId(),
+                epochMillis(post.getPublishedAt()),
+                statusOf(post)));
 
         return PostCreateVO.from(post);
     }

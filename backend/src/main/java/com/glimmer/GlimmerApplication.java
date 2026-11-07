@@ -4,6 +4,7 @@ import com.glimmer.common.auth.JwtProperties;
 import com.glimmer.common.config.CorsProperties;
 import com.glimmer.common.ratelimit.RateLimitProperties;
 import com.glimmer.common.storage.OssProperties;
+import com.glimmer.feed.config.FeedProperties;
 import org.apache.ibatis.annotations.Mapper;
 import org.mybatis.spring.annotation.MapperScan;
 import org.springframework.boot.SpringApplication;
@@ -27,7 +28,8 @@ import org.springframework.scheduling.annotation.EnableScheduling;
         JwtProperties.class,
         CorsProperties.class,
         RateLimitProperties.class,
-        OssProperties.class
+        OssProperties.class,
+        FeedProperties.class
 })
 @MapperScan(basePackages = "com.glimmer", annotationClass = Mapper.class)
 @EnableScheduling

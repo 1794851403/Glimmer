@@ -14,6 +14,7 @@ import com.glimmer.user.vo.SelfProfileVO;
 import com.glimmer.user.vo.UserProfileVO;
 import com.glimmer.user.entity.UserDO;
 import com.glimmer.user.entity.UserFollowDO;
+import com.glimmer.user.event.UserFollowedEvent;
 import com.glimmer.user.mapper.UserFollowMapper;
 import com.glimmer.user.mapper.UserMapper;
 import com.glimmer.user.vo.UserBriefVO;
@@ -23,6 +24,7 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
+import org.springframework.context.ApplicationEventPublisher;
 
 import java.time.LocalDateTime;
 import java.util.Arrays;
@@ -44,6 +46,7 @@ class UserServiceImplTest {
 
     private UserMapper userMapper;
     private UserFollowMapper userFollowMapper;
+    private ApplicationEventPublisher eventPublisher;
     private UserServiceImpl userService;
 
     @BeforeAll
@@ -58,7 +61,8 @@ class UserServiceImplTest {
     void setUp() {
         userMapper = mock(UserMapper.class);
         userFollowMapper = mock(UserFollowMapper.class);
-        userService = new UserServiceImpl(userMapper, userFollowMapper);
+        eventPublisher = mock(ApplicationEventPublisher.class);
+        userService = new UserServiceImpl(userMapper, userFollowMapper, eventPublisher);
         UserContext.set(new LoginUser(1L, "USER"));
     }
 
@@ -336,6 +340,12 @@ class UserServiceImplTest {
         assertThat(captor.getValue().getFollowerId()).isEqualTo(1L);
         assertThat(captor.getValue().getFolloweeId()).isEqualTo(2L);
         verify(userMapper, times(2)).update(isNull(), any());
+
+        ArgumentCaptor<UserFollowedEvent> eventCaptor =
+                ArgumentCaptor.forClass(UserFollowedEvent.class);
+        verify(eventPublisher).publishEvent(eventCaptor.capture());
+        assertThat(eventCaptor.getValue().followerId()).isEqualTo(1L);
+        assertThat(eventCaptor.getValue().followeeId()).isEqualTo(2L);
     }
 
     @Test
@@ -349,6 +359,7 @@ class UserServiceImplTest {
         assertThat(result.followerCount()).isEqualTo(3);
         verify(userFollowMapper, never()).insert(any(UserFollowDO.class));
         verify(userMapper, never()).update(isNull(), any());
+        verifyNoInteractions(eventPublisher);
     }
 
     @Test
@@ -384,6 +395,7 @@ class UserServiceImplTest {
         assertThat(result.following()).isFalse();
         assertThat(result.followerCount()).isEqualTo(2);
         verify(userMapper, times(2)).update(isNull(), any());
+        verifyNoInteractions(eventPublisher);
     }
 
     @Test

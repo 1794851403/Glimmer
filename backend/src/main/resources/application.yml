@@ -37,10 +37,18 @@ spring:
     username: ${RABBITMQ_DEFAULT_USER:glimmer}
     password: ${RABBITMQ_DEFAULT_PASS:}
     virtual-host: /
+    connection-timeout: 3s
     publisher-confirm-type: correlated
     publisher-returns: true
     template:
       mandatory: true
+    listener:
+      simple:
+        acknowledge-mode: manual
+        default-requeue-rejected: false
+        prefetch: 20
+        concurrency: 2
+        max-concurrency: 4
 
 mybatis-plus:
   configuration:
@@ -81,6 +89,12 @@ glimmer:
       password: ${REDIS_CACHE_PASSWORD:}
       database: 0
       timeout-ms: 3000
+  # 关注流收件箱：可丢缓存，重启/淘汰后由首页重建或 MySQL 回源兜底。
+  feed:
+    inbox-max-size: 200
+    inbox-ttl-days: 30
+    fanout-batch-size: 500
+    rebuild-after-hours: 24
   # CORS 仅用于本地直连调试；生产走 Nginx 同源反代，不依赖 CORS。
   # 开发白名单见 application-dev.yml。
   rate-limit:

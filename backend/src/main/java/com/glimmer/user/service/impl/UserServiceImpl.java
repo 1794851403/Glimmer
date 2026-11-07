@@ -11,6 +11,7 @@ import com.glimmer.common.web.UserContext;
 import com.glimmer.user.dto.UpdateProfileDTO;
 import com.glimmer.user.entity.UserDO;
 import com.glimmer.user.entity.UserFollowDO;
+import com.glimmer.user.event.UserFollowedEvent;
 import com.glimmer.user.mapper.UserFollowMapper;
 import com.glimmer.user.mapper.UserMapper;
 import com.glimmer.user.service.UserService;
@@ -19,6 +20,7 @@ import com.glimmer.user.vo.FollowUserVO;
 import com.glimmer.user.vo.SelfProfileVO;
 import com.glimmer.user.vo.UserBriefVO;
 import com.glimmer.user.vo.UserProfileVO;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -54,10 +56,13 @@ public class UserServiceImpl implements UserService {
 
     private final UserMapper userMapper;
     private final UserFollowMapper userFollowMapper;
+    private final ApplicationEventPublisher eventPublisher;
 
-    public UserServiceImpl(UserMapper userMapper, UserFollowMapper userFollowMapper) {
+    public UserServiceImpl(UserMapper userMapper, UserFollowMapper userFollowMapper,
+                           ApplicationEventPublisher eventPublisher) {
         this.userMapper = userMapper;
         this.userFollowMapper = userFollowMapper;
+        this.eventPublisher = eventPublisher;
     }
 
     /**
@@ -258,6 +263,28 @@ public class UserServiceImpl implements UserService {
     }
 
     /**
+     * 直接委托 Mapper 做有界批量查询；空作者返回空列表，批大小夹在 1~1000。
+     *
+     * @param followeeId      被关注者 ID
+     * @param afterFollowerId 上一批最后一个粉丝 ID，可为空
+     * @param limit           批大小
+     * @return 粉丝 ID 列表
+     */
+    @Override
+    public List<Long> listFollowerIds(Long followeeId, Long afterFollowerId, int limit) {
+        if (followeeId == null) {
+            return List.of();
+        }
+        long after = afterFollowerId == null ? 0L : afterFollowerId;
+        int batchSize = Math.max(1, Math.min(limit, 1000));
+        List<Long> rows = userFollowMapper.listFollowerIds(followeeId, after, batchSize);
+        if (rows == null || rows.isEmpty()) {
+            return List.of();
+        }
+        return rows.stream().filter(Objects::nonNull).toList();
+    }
+
+    /**
      * 解析目标用户并禁止自关注；先查关系再插入，重复关注直接按已关注返回。
      * 并发重复关注由唯一键兜底；真正插入时在同一事务内递增双方计数。
      *
@@ -291,6 +318,8 @@ public class UserServiceImpl implements UserService {
             }
             adjustFollowCounts(viewer.userId(), targetId, 1);
             followerCount++;
+            // 只有真正插入关系后才回填；重复关注不会触发 Feed 回填。
+            eventPublisher.publishEvent(new UserFollowedEvent(viewer.userId(), targetId));
         }
         return new FollowResultVO(String.valueOf(targetId), true, followerCount);
     }
