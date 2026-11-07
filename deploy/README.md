@@ -204,7 +204,10 @@ glimmer:
 
 启动前确认 `.env` 中的 `JWT_SECRET` 至少 32 字节。在 IDE 中运行
 `com.glimmer.GlimmerApplication`，工作目录设为 `backend/`；从仓库根目录执行
-`mvn -f backend/pom.xml spring-boot:run` 也能读取 `deploy/.env`。
+`mvn -f backend/pom.xml spring-boot:run` 也能读取 `deploy/.env`。若路径含中文导致
+`ClassNotFoundException: com.glimmer.GlimmerApplication`，改用
+`mvn -f backend/pom.xml -DskipTests package`，再从仓库根目录执行
+`java -jar backend/target/glimmer-backend-0.1.0-SNAPSHOT.jar`。
 
 图片存储开发和发布都只走 OSS，在 `.env` 填写 `OSS_ENDPOINT` / `OSS_BUCKET` /
 `OSS_ACCESS_KEY_ID` / `OSS_ACCESS_KEY_SECRET`。OSS 桶保持私有，但需关闭 Bucket 的
@@ -238,7 +241,8 @@ docker compose exec -T redis-core redis-cli BGREWRITEAOF
 | ES 启动报 `max virtual memory areas vm.max_map_count [65530] is too low` | 执行第 4 节 sysctl |
 | Redis 容器不断重启 | `.env` 中密码为空或含 `$`；改用简单强密码并检查 `docker compose logs` |
 | MySQL 连不上 | 端口未放行 / 用户 host 不是 `%` / `BIND_IP` 不是 VM 当前 IP |
-| SSH 能通，但 3306/6379/6380 从宿主机超时 | `sysctl net.ipv4.ip_forward` 为 0；设为 1 并持久化到 `/etc/sysctl.d/` |
+| SSH 能通，但 3306/6379/6380 从宿主机超时 | 先查 `sysctl net.ipv4.ip_forward`，为 0 时设为 1 并持久化到 `/etc/sysctl.d/`；若仍不通，继续查下一行 |
+| VM 挂起后恢复，SSH 能通但所有 Docker 端口超时；`ip route get 172.28.0.x` 走 `ens33` 而不是 `br-*` | Docker 网桥在挂起 / 恢复后丢失 IPv4 地址。执行 `sudo systemctl restart docker`，确认 `ip -4 addr show br-*` 有 `172.28.0.1/16`、`ip route` 有 `172.28.0.0/16 dev br-*`；仍异常则重建 `glimmer-net` |
 | RabbitMQ 延迟插件缺失 | 构建日志看 `ADD` 是否成功；离线时手动放 `.ez` 后改 `COPY` |
 | IK 插件 404 | `IK_VERSION` 与 `ES_VERSION` 必须完全一致；确认 GitHub release 可用 |
 | 磁盘满 | `docker system df` / `df -h`；ES 与镜像最占空间 |

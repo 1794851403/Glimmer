@@ -79,11 +79,16 @@ src/main/java/com/glimmer/
 
 1. 在 `deploy/` 中准备 `.env`（见 `deploy/README.md`），至少设置 MySQL / Redis 密码、`JWT_SECRET`（≥32 字节）与 `OSS_*` 配置。
 2. 启动基础设施：`cd deploy && docker compose up -d`。
-3. 运行：
+3. 运行（在仓库根目录执行）：
 
    ```bash
-   mvn spring-boot:run
+   mvn -q -f backend/pom.xml -DskipTests package
+   java -jar backend/target/glimmer-backend-0.1.0-SNAPSHOT.jar
    ```
+
+   当前工作区路径含中文时，`mvn spring-boot:run` 可能报
+   `ClassNotFoundException: com.glimmer.GlimmerApplication`；打包后 `java -jar` 可正常运行，
+   且从仓库根目录启动能读取 `deploy/.env`。路径全英文时也可以直接 `mvn spring-boot:run`。
 
    IDE 中运行 `com.glimmer.GlimmerApplication` 时，工作目录设为 `backend/`。
 
